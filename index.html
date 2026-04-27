@@ -3,66 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat - v6.0 Telemost</title>
-    <!-- Firebase SDK -->
+    <title>GamerChat v7.0 - Ultra Reliable</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { background-color: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
-        /* Боковая панель */
-        .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; z-index: 100; }
-        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 12px; font-size: 20px; text-decoration: none; }
+        body { background-color: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; }
+        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 12px; font-size: 20px; }
         .icon:hover { border-radius: 30%; background-color: #4752c4; }
         .icon.voice { background-color: #23a559; }
 
-        /* Чат */
-        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; position: relative; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; }
         #st { text-align: center; color: #23a559; padding: 6px; font-size: 0.75rem; font-weight: bold; background: #2b2d31; }
         #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
         
         .msg { margin-bottom: 16px; background: rgba(79, 84, 92, 0.16); padding: 12px; border-radius: 8px; border-left: 4px solid #5865f2; }
         .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .author small { color: #949ba4; font-size: 0.75em; margin-left: 8px; font-weight: normal; }
-        .del-btn { color: #f23f43; cursor: pointer; font-size: 1.2em; }
+        .author small { color: #949ba4; font-size: 0.75em; margin-left: 8px; }
+        .del-btn { color: #f23f43; cursor: pointer; }
 
-        .chat-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid #444; }
-
+        .chat-img { max-width: 100%; border-radius: 8px; margin-top: 8px; display: block; }
         .input-box { padding: 20px; }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 14px; color: white; outline: none; box-sizing: border-box; }
 
-        /* ВСТРОЕННЫЙ ТЕЛЕМОСТ (ЯНДЕКС) */
-        #voice-window {
-            position: absolute; top: 50px; right: 20px; width: 450px; height: 600px;
-            background: #1e1f22; border: 2px solid #23a559; border-radius: 12px;
-            display: none; flex-direction: column; overflow: hidden; z-index: 99;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-        }
-        #voice-window iframe { border: none; width: 100%; height: 100%; }
-        .voice-header { background: #23a559; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-        .close-btn { cursor: pointer; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px; }
+        /* Уведомление о звонке */
+        .call-invite { background: #23a559; color: white; padding: 10px; border-radius: 8px; margin-top: 10px; text-align: center; cursor: pointer; font-weight: bold; text-decoration: none; display: block; }
     </style>
 </head>
 <body>
 
     <div class="servers">
         <div class="icon" onclick="location.reload()">G</div>
-        <!-- Кнопка голоса -->
-        <div class="icon voice" onclick="toggleVoice()">🎤</div>
+        <!-- Теперь кнопка просто кидает ссылку в чат -->
+        <div class="icon voice" onclick="sendCallInvite()" title="Позвать в звонок">🎤</div>
     </div>
 
     <div class="chat-area">
         <div id="st">ПОДКЛЮЧЕНИЕ...</div>
-        
-        <div id="voice-window">
-            <div class="voice-header">
-                <span>Яндекс Телемост</span>
-                <span class="close-btn" onclick="toggleVoice()">ЗАКРЫТЬ ×</span>
-            </div>
-            <!-- Сюда подгрузится Телемост -->
-            <iframe id="v-frame" allow="microphone; camera; display-capture; autoplay"></iframe>
-        </div>
-
         <div id="msgs"></div>
         <div class="input-box">
             <input type="text" id="ui" placeholder="Напиши что-нибудь..." autocomplete="off">
@@ -81,31 +58,27 @@
     };
 
     const notifySound = new Audio('https://githubusercontent.com');
-
-    function toggleVoice() {
-        const win = document.getElementById('voice-window');
-        const frame = document.getElementById('v-frame');
-        
-        if (win.style.display === 'flex') {
-            win.style.display = 'none';
-            frame.src = ""; 
-        } else {
-            win.style.display = 'flex';
-            // Используем Яндекс Телемост — он стабильно работает
-            // Ты можешь создать свою постоянную ссылку в Телемосте и вставить её сюда
-            frame.src = "https://yandex.ru"; 
-        }
-    }
-
     firebase.initializeApp(cfg);
     const db = firebase.database();
 
     let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:", "Геймер") || "Аноним";
     localStorage.setItem('chat_nick', myName);
 
+    // Функция: отправить приглашение в звонок
+    function sendCallInvite() {
+        // Создаем ссылку на Телеграм-звонок (замени 'твой_ник' на свой или ссылку на группу)
+        const callLink = "https://t.me"; 
+        db.ref('global_chat').push().set({ 
+            u: "СИСТЕМА", 
+            t: `📞 ${myName} зовет всех в голосовой чат! Нажми, чтобы зайти: ${callLink}`,
+            isCall: true,
+            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+        });
+    }
+
     db.ref('.info/connected').on('value', s => {
         const st = document.getElementById('st');
-        st.innerText = s.val() ? "В СЕТИ" : "ПОДКЛЮЧЕНИЕ...";
+        st.innerText = s.val() ? "В СЕТИ" : "ОФФЛАЙН";
         st.style.color = s.val() ? "#23a559" : "#f23f43";
     });
 
@@ -126,24 +99,29 @@
         m.className = 'msg';
         m.id = 'msg-' + key;
 
-        let txt = d.t;
-        const isImg = /(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|webp|jpeg)/i.test(d.t);
-        if (isImg) txt = `${d.t}<br><img src="${d.t}" class="chat-img" onerror="this.style.display='none'">`;
+        let content = d.t;
+        
+        // Если это приглашение в звонок — делаем красивую кнопку
+        if (d.isCall) {
+            content = `<a href="https://t.me" target="_blank" class="call-invite">${d.t}</a>`;
+        } else {
+            // Если картинка
+            const isImg = /(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|webp|jpeg)/i.test(d.t);
+            if (isImg) content = `<img src="${d.t}" class="chat-img">`;
+        }
 
-        let del = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">×</span>` : "";
+        let del = (d.u === myName || d.u === "СИСТЕМА") ? `<span class="del-btn" onclick="deleteMsg('${key}')">×</span>` : "";
 
-        m.innerHTML = `<div class="author"><span>${d.u} <small>${d.time || ''}</small></span>${del}</div><div>${txt}</div>`;
+        m.innerHTML = `<div class="author"><span>${d.u} <small>${d.time || ''}</small></span>${del}</div><div>${content}</div>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         if (d.u !== myName) notifySound.play().catch(() => {});
     });
 
-    window.deleteMsg = function(key) {
-        if(confirm("Удалить?")) db.ref('global_chat').child(key).remove();
-    };
-    db.ref('global_chat').on('child_removed', s => {
-        const el = document.getElementById('msg-' + s.key);
-        if (el) el.remove();
+    window.deleteMsg = function(k) { if(confirm("Удалить?")) db.ref('global_chat').child(k).remove(); };
+    db.ref('global_chat').on('child_removed', s => { 
+        const el = document.getElementById('msg-' + s.key); 
+        if (el) el.remove(); 
     });
 </script>
 </body>
