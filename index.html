@@ -3,36 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v44.0 - Battle Proof</title>
+    <title>GamerChat v45.0 - Final Sound Fix</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
         body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; color: white; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
         .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #dbdee1; }
-        
         .ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.1s; flex-shrink: 0; }
         .glow { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.05); }
-
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .msg { margin-bottom: 12px; display: flex; gap: 12px; align-items: flex-start; }
         .m-u { font-weight: bold; color: white; margin-right: 5px; }
-
         .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
         .e-item { cursor: pointer; font-size: 22px; }
-
         .voice-controls { padding: 15px 20px; background: rgba(0,0,0,0.3); border-top: 1px solid #222; }
         .btn { border: none; padding: 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 14px; }
         .btn-join { background: var(--accent); color: white; }
         .btn-leave { background: var(--red); color: white; display: none; }
-
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
@@ -42,16 +35,16 @@
     </style>
 </head>
 <body>
-<div id="audio-container" style="display:none"></div>
+<div id="audio-dump" style="position:fixed; top:-999px; left:-999px"></div>
 
 <div id="modal">
     <div class="m-content">
-        <h3>Профиль</h3>
+        <h3>Настройки</h3>
         <input type="text" id="set-nick">
         <div class="color-p" id="color-picker"></div>
         <label>Микрофон:</label> <select id="mic-list"></select>
         <label>Динамики:</label> <select id="speaker-list"></select>
-        <button class="btn btn-join" onclick="saveSettings()" style="padding:10px">OK</button>
+        <button class="btn btn-join" onclick="saveSettings()">OK</button>
     </div>
 </div>
 
@@ -64,7 +57,7 @@
     <div id="v-users" class="v-list"></div>
 </div>
 
-<div class="main">
+<div class="main" onclick="resumeAudio()">
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
     <div class="voice-controls">
@@ -98,6 +91,8 @@
     let connections = {};
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
+    function resumeAudio() { if (window.AudioContext) new AudioContext().resume(); }
+
     async function joinVoice() {
         try {
             console.log("Запуск микрофона...");
@@ -110,17 +105,15 @@
             document.getElementById('net-st').style.color = "var(--green)";
             document.getElementById('net-st').innerText = "● СЕТЬ: В КАНАЛЕ";
 
-            const myRef = db.ref('voice_v8').child(myName);
-            myRef.set({ id: myPeerId, color: myColor });
-            myRef.onDisconnect().remove();
+            db.ref('voice_v8').child(myName).set({ id: myPeerId, color: myColor });
+            db.ref('voice_v8').child(myName).onDisconnect().remove();
 
             monitorVolume(myStream, myName);
             startVoiceEngine();
-        } catch (e) { alert("Ошибка микрофона: " + e.message); }
+        } catch (e) { alert("Ошибка: " + e.message); }
     }
 
     function startVoiceEngine() {
-        console.log("Двигатель запущен.");
         db.ref('voice_v8').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
@@ -143,18 +136,13 @@
                 } else if (d.type === 'ice' && d.ice) {
                     await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                 }
-            } catch (e) { console.error("Signal error:", e); }
+            } catch (e) {}
             s.ref.remove();
         });
     }
 
     function createConnection(targetName, targetId) {
-        console.log("Попытка связи с: " + targetName);
-        const pc = new RTCPeerConnection({ iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun.services.mozilla.com' }
-        ]});
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[targetName] = pc;
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
         
@@ -162,11 +150,20 @@
         
         pc.ontrack = e => {
             console.log("ПОЛУЧЕН ПОТОК ОТ: " + targetName);
-            let a = document.createElement('audio');
-            a.autoplay = true; a.srcObject = e.streams[0];
+            const a = document.createElement('audio');
+            a.autoplay = true; a.srcObject = e.streams; a.volume = 1.0;
             if (a.setSinkId) a.setSinkId(selectedSpk);
-            document.getElementById('audio-container').appendChild(a);
-            monitorVolume(e.streams[0], targetName);
+            document.getElementById('audio-dump').appendChild(a);
+            
+            // ПРИНУДИТЕЛЬНЫЙ ПИНОК ЗВУКА
+            const playAttempt = setInterval(() => {
+                a.play().then(() => {
+                    console.log("ЗВУК ДОЛЖЕН ИГРАТЬ ОТ: " + targetName);
+                    clearInterval(playAttempt);
+                }).catch(() => console.log("Ждем клика пользователя..."));
+            }, 2000);
+
+            monitorVolume(e.streams, targetName);
         };
 
         if (myName < targetName) {
@@ -181,14 +178,14 @@
 
     function monitorVolume(stream, name) {
         try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const ctx = new AudioContext();
             const src = ctx.createMediaStreamSource(stream);
-            const analyzer = ctx.createAnalyser();
-            src.connect(analyzer);
-            const data = new Uint8Array(analyzer.frequencyBinCount);
+            const anz = ctx.createAnalyser();
+            src.connect(anz);
+            const data = new Uint8Array(anz.frequencyBinCount);
             function check() {
                 if (!stream.active) return;
-                analyzer.getByteFrequencyData(data);
+                anz.getByteFrequencyData(data);
                 let vol = data.reduce((a,b) => a+b) / data.length;
                 const el = document.getElementById('ava-' + name);
                 if (el) el.classList.toggle('glow', vol > 5);
@@ -243,7 +240,7 @@
 
     db.ref('global_chat').limitToLast(30).on('child_added', s => {
         const d = s.val(); const m = document.createElement('div'); m.className = 'msg';
-        m.innerHTML = `<div class="ava" style="background:${d.color || '#5865f2'}">${d.u.charAt(0)}</div><div><span class="m-u ${d.u==='CREATIV'?'admin':''}">${d.u}:</span><span style="color:#dcddde">${d.t}</span></div>`;
+        m.innerHTML = `<div class="ava" style="background:${d.color || '#5865f2'}">${d.u.charAt(0)}</div><div><span class="m-u">${d.u}:</span><span style="color:#dcddde">${d.t}</span></div>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         if (d.u !== myName) icqSound.play().catch(()=>{});
