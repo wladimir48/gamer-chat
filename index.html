@@ -3,38 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v47.0 - Final Push</title>
+    <title>GamerChat v48.0 - Voice Unlocked</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
-        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
+        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; color: white; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
         .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; margin-top: 5px; }
         .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #dbdee1; }
-        
         .ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.1s; flex-shrink: 0; }
         .glow { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.05); }
-
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { margin-bottom: 12px; display: flex; gap: 12px; }
-
         .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
         .e-item { cursor: pointer; font-size: 22px; }
-
-        /* СПЕЦИАЛЬНАЯ КНОПКА ДЛЯ ПРОБОЯ ЗВУКА */
-        #sound-repair { position: absolute; top: 10px; right: 20px; background: var(--green); color: white; border: none; padding: 10px 20px; border-radius: 20px; font-weight: bold; cursor: pointer; display: none; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-
         .voice-controls { padding: 15px 20px; background: rgba(0,0,0,0.3); border-top: 1px solid #222; }
         .btn { border: none; padding: 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 14px; }
         .btn-join { background: var(--accent); color: white; }
         .btn-leave { background: var(--red); color: white; display: none; }
-
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
@@ -43,9 +32,8 @@
         .color-dot.selected { border-color: white; transform: scale(1.2); }
     </style>
 </head>
-<body>
-<button id="sound-repair" onclick="forcePlayAll()">📢 ЕСТЬ СИГНАЛ! НАЖМИ ЧТОБЫ СЛЫШАТЬ</button>
-<div id="audio-dump" style="position:absolute; visibility:hidden"></div>
+<body onclick="unlockAudio()">
+<div id="audio-dump" style="display:none"></div>
 
 <div id="modal">
     <div class="m-content">
@@ -54,7 +42,7 @@
         <div class="color-p" id="color-picker"></div>
         <label>Микрофон:</label> <select id="mic-list"></select>
         <label>Динамики:</label> <select id="speaker-list"></select>
-        <button class="btn btn-join" onclick="saveSettings()">OK</button>
+        <button class="btn btn-join" onclick="saveSettings()">Применить</button>
     </div>
 </div>
 
@@ -101,11 +89,13 @@
     let connections = {};
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
-    function forcePlayAll() {
-        if (window.AudioContext) new AudioContext().resume();
-        const audios = document.querySelectorAll('#audio-dump audio');
-        audios.forEach(a => a.play());
-        document.getElementById('sound-repair').style.display = 'none';
+    function unlockAudio() {
+        if (window.AudioContext) {
+            const ctx = new AudioContext();
+            if (ctx.state === 'suspended') ctx.resume();
+        }
+        const audios = document.querySelectorAll('audio');
+        audios.forEach(a => a.play().catch(()=>{}));
     }
 
     async function joinVoice() {
@@ -117,24 +107,25 @@
             document.getElementById('btn-leave').style.display = "block";
             document.getElementById('net-st').style.color = "var(--green)";
             document.getElementById('net-st').innerText = "● СЕТЬ: В КАНАЛЕ";
-            db.ref('voice_v10').child(myName).set({ id: myPeerId, color: myColor });
-            db.ref('voice_v10').child(myName).onDisconnect().remove();
-            startVoiceEngine();
-        } catch (e) { alert("Ошибка микрофона!"); }
+            db.ref('voice_final').child(myName).set({ id: myPeerId, color: myColor });
+            db.ref('voice_final').child(myName).onDisconnect().remove();
+            monitorVolume(myStream, myName);
+            startSignaling();
+        } catch (e) { alert("Микрофон не найден!"); }
     }
 
-    function startVoiceEngine() {
-        db.ref('voice_v10').on('value', s => {
+    function startSignaling() {
+        db.ref('voice_final').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
                 const u = c.val();
                 b.innerHTML += `<div class="v-u"><div class="ava" id="ava-${c.key}" style="background:${u.color}">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
-                if (c.key !== myName && !connections[c.key]) createConnection(c.key, u.id);
+                if (c.key !== myName && !connections[c.key]) setupWebRTC(c.key, u.id);
             });
         });
 
-        db.ref('signals_v10').child(myName).on('child_added', async s => {
-            const d = s.val(); if (!connections[d.from]) createConnection(d.from, d.id);
+        db.ref('signals_final').child(myName).on('child_added', async s => {
+            const d = s.val(); if (!connections[d.from]) setupWebRTC(d.from, d.id);
             const pc = connections[d.from];
             try {
                 if (d.type === 'offer') {
@@ -143,7 +134,7 @@
                     sendSignal(d.from, { type: 'answer', answer: ans });
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
-                } else if (d.type === 'ice' && d.ice) {
+                } else if (d.type === 'ice') {
                     await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                 }
             } catch (e) {}
@@ -151,7 +142,7 @@
         });
     }
 
-    function createConnection(targetName, targetId) {
+    function setupWebRTC(targetName, targetId) {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] });
         connections[targetName] = pc;
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
@@ -159,11 +150,10 @@
         
         pc.ontrack = e => {
             console.log("ПОЛУЧЕН ПОТОК ОТ: " + targetName);
-            document.getElementById('sound-repair').style.display = 'block'; // Показываем кнопку починки
             const a = document.createElement('audio');
             a.autoplay = true;
-            // Используем MediaStream из события напрямую
-            a.srcObject = e.streams[0];
+            // ИСПРАВЛЕНИЕ: берем поток правильно
+            a.srcObject = e.streams[0]; 
             if (a.setSinkId) a.setSinkId(selectedSpk);
             document.getElementById('audio-dump').appendChild(a);
             monitorVolume(e.streams[0], targetName);
@@ -177,7 +167,7 @@
         }
     }
 
-    function sendSignal(to, data) { db.ref('signals_v10').child(to).push({ ...data, from: myName }); }
+    function sendSignal(to, data) { db.ref('signals_final').child(to).push({ ...data, from: myName }); }
 
     function monitorVolume(stream, name) {
         try {
