@@ -3,13 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v22.0 - Retro Fixed</title>
-    
-    <!-- УДАЛИ ВСЕ БУКВЫ Ы НИЖЕ -->
-    <script src="https://gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
-    
+    <title>GamerChat v22.0 - Final Fix</title>
+    <!-- Библиотеки загрузятся сами через "магию" скрипта внизу -->
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; }
         body { background: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
@@ -48,76 +43,99 @@
 </div>
 
 <script>
-    // КОНФИГ ТОЖЕ СОДЕРЖИТ БУКВ  - УДАЛИ ИХ
-    const cfg = {
-        apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
-        authDomain: "gamerchat-7a857.firebaseapp.com",
-        databaseURL: "https://xn--firebaseio-nzi.com",
-        projectId: "gamerchat-7a857",
-        storageBucket: "gamerchat-7a857.firebasestorage.app",
-        messagingSenderId: "899769524812",
-        appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
-    };
-
-    firebase.initializeApp(cfg);
-    const db = firebase.database();
-    
-    // Ссылка на звук
-    const icqSound = new Audio('https://myinstants.com/media/sounds/icq-uh-oh.mp3'.replace('',''));
-
-    let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:") || "Геймер";
-    localStorage.setItem('chat_nick', myName);
-
-    const peer = new Peer('gc-' + Math.floor(Math.random() * 10000));
-    let myStream = null;
-
-    function toggleVoice() {
-        const btn = document.getElementById('v-btn');
-        if (myStream) {
-            location.reload(); 
-        } else {
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-                myStream = stream;
-                btn.classList.add('v-active');
-                btn.innerText = "🔊 В КАНАЛЕ (ВЫЙТИ)";
-                db.ref('voice_active').child(myName).set(peer.id);
-                db.ref('voice_active').child(myName).onDisconnect().remove();
-            }).catch(() => alert("Нужно разрешить микрофон!"));
-        }
+    // Хитрый способ загрузки библиотек без ошибок вывода
+    function loadScripts() {
+        const scripts = [
+            'https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js',
+            'https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js',
+            'https://unpkg.com'
+        ];
+        
+        let loaded = 0;
+        scripts.forEach(url => {
+            const s = document.createElement('script');
+            s.src = url;
+            s.onload = () => {
+                loaded++;
+                if (loaded === scripts.length) startApp();
+            };
+            document.head.appendChild(s);
+        });
     }
 
-    peer.on('call', call => {
-        call.answer(myStream);
-        call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
-    });
+    function startApp() {
+        const cfg = {
+            apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
+            authDomain: "gamerchat-7a857" + ".firebaseapp.com",
+            databaseURL: "https://gamerchat-7a857-default-rtdb" + ".firebaseio.com",
+            projectId: "gamerchat-7a857",
+            storageBucket: "gamerchat-7a857" + ".firebasestorage.app",
+            messagingSenderId: "899769524812",
+            appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
+        };
 
-    db.ref('voice_active').on('child_added', s => {
-        if (s.val() !== peer.id && myStream) peer.call(s.val(), myStream);
-    });
+        firebase.initializeApp(cfg);
+        const db = firebase.database();
+        const icqSound = new Audio('https://myinstants.com');
 
-    db.ref('voice_active').on('value', s => {
-        const b = document.getElementById('v-users'); b.innerHTML = "";
-        s.forEach(c => { b.innerHTML += `<div>● ${c.key}</div>`; });
-    });
+        let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:") || "Геймер";
+        localStorage.setItem('chat_nick', myName);
 
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if (e.key === 'Enter' && ui.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: ui.value });
-            ui.value = "";
-        }
-    };
+        // ГОЛОС
+        const peer = new Peer('gc-' + Math.floor(Math.random() * 10000));
+        let myStream = null;
 
-    db.ref('global_chat').limitToLast(50).on('child_added', s => {
-        const d = s.val();
-        const m = document.createElement('div');
-        m.className = 'msg';
-        const isAdm = d.u === 'CREATIV' ? 'admin' : '';
-        m.innerHTML = `<span class="m-u ${isAdm}">${d.u}:</span><span>${d.t}</span>`;
-        document.getElementById('msgs').appendChild(m);
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        if (d.u !== myName) icqSound.play().catch(() => {});
-    });
+        window.toggleVoice = function() {
+            const btn = document.getElementById('v-btn');
+            if (myStream) {
+                location.reload(); 
+            } else {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                    myStream = stream;
+                    btn.classList.add('v-active');
+                    btn.innerText = "🔊 В КАНАЛЕ (ВЫЙТИ)";
+                    db.ref('voice_active').child(myName).set(peer.id);
+                    db.ref('voice_active').child(myName).onDisconnect().remove();
+                }).catch(() => alert("Нужно разрешить микрофон!"));
+            }
+        };
+
+        peer.on('call', call => {
+            call.answer(myStream);
+            call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
+        });
+
+        db.ref('voice_active').on('child_added', s => {
+            if (s.val() !== peer.id && myStream) peer.call(s.val(), myStream);
+        });
+
+        db.ref('voice_active').on('value', s => {
+            const b = document.getElementById('v-users'); b.innerHTML = "";
+            s.forEach(c => { b.innerHTML += `<div>● ${c.key}</div>`; });
+        });
+
+        // ЧАТ
+        const ui = document.getElementById('ui');
+        ui.onkeydown = (e) => {
+            if (e.key === 'Enter' && ui.value.trim()) {
+                db.ref('global_chat').push().set({ u: myName, t: ui.value });
+                ui.value = "";
+            }
+        };
+
+        db.ref('global_chat').limitToLast(50).on('child_added', s => {
+            const d = s.val();
+            const m = document.createElement('div');
+            m.className = 'msg';
+            const isAdm = d.u === 'CREATIV' ? 'admin' : '';
+            m.innerHTML = `<span class="m-u ${isAdm}">${d.u}:</span><span>${d.t}</span>`;
+            document.getElementById('msgs').appendChild(m);
+            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+            if (d.u !== myName) icqSound.play().catch(() => {});
+        });
+    }
+
+    loadScripts();
 </script>
 </body>
 </html>
