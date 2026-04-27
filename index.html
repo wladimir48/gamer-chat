@@ -4,22 +4,38 @@
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https:// www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         body { background-color: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; }
-        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; }
-        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; }
+        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .icon:hover { border-radius: 30%; background-color: #4752c4; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; position: relative; }
         #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
         .msg { margin-bottom: 12px; background: rgba(79, 84, 92, 0.16); padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; word-wrap: break-word; }
         .author { color: #fff; font-weight: bold; margin-bottom: 4px; }
         .input-box { padding: 20px; }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; box-sizing: border-box; }
         .status { text-align: center; color: #23a559; padding: 5px; font-size: 0.8em; font-weight: bold; background: #2b2d31; }
+        #voice-wrap { display:none; position:fixed; top:0; left:72px; right:0; bottom:0; background:#1e1f22; z-index:1000; }
     </style>
 </head>
 <body>
-    <div class="servers"><div class="icon">G</div></div>
+    <!-- Левая панель -->
+    <div class="servers">
+        <div class="icon" onclick="location.reload()" title="Текстовый чат">G</div>
+        <div class="icon" style="margin-top:10px; background:#23a559;" onclick="toggleVoice()" title="Голосовой канал">🎤</div>
+    </div>
+
+    <!-- Окно голосового чата -->
+    <div id="voice-wrap">
+        <div style="padding:10px; background:#2b2d31; display:flex; justify-content:space-between; align-items:center;">
+            <span>Голосовой канал: GamerChat</span>
+            <button onclick="toggleVoice()" style="cursor:pointer; background:#f23f43; border:none; color:white; padding:5px 15px; border-radius:5px;">ВЫЙТИ</button>
+        </div>
+        <iframe src="https://jit.si" allow="microphone; camera" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
+    </div>
+
     <div class="chat-area">
         <div id="st" class="status">ПОДКЛЮЧЕНИЕ К СЕРВЕРУ...</div>
         <div id="msgs"></div>
@@ -37,12 +53,17 @@
         appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
+    function toggleVoice() {
+        const v = document.getElementById('voice-wrap');
+        v.style.display = (v.style.display === 'none') ? 'block' : 'none';
+    }
+
     window.onload = function() {
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(cfg);
             const db = firebase.database();
 
-            let myName = prompt("Введи свой никнейм:", "Геймер " + Math.floor(Math.random() * 100));
+            let myName = prompt("Введи свой никнейм:", "Геймер");
             if (!myName) myName = "Аноним";
 
             db.ref('.info/connected').on('value', s => {
@@ -53,10 +74,7 @@
 
             document.getElementById('ui').onkeypress = function(e) {
                 if (e.key === 'Enter' && this.value.trim() !== "") {
-                    db.ref('global_chat').push().set({ 
-                        u: myName, 
-                        t: this.value 
-                    });
+                    db.ref('global_chat').push().set({ u: myName, t: this.value });
                     this.value = "";
                 }
             };
@@ -65,19 +83,15 @@
                 const d = s.val();
                 const m = document.createElement('div');
                 m.className = 'msg';
-                
-                // Если пишет админ (CREATIV), меняем стиль рамки и фона
                 if (d.u === "CREATIV") {
                     m.style.borderLeft = "4px solid #ffca28";
                     m.style.background = "rgba(255, 202, 40, 0.1)";
                 }
-
                 m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>${d.u}</div><div>${d.t}</div>`;
                 const msgs = document.getElementById('msgs');
                 msgs.appendChild(m);
                 msgs.scrollTop = msgs.scrollHeight;
             });
-
         }
     };
 </script>
