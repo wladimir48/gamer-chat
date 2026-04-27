@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v29.0 - Radio Mode</title>
+    <title>GamerChat v30.0 - Bulletproof Radio</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
@@ -11,35 +11,35 @@
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
         body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* Боковая панель */
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; }
-        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
+        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
         
-        /* Список в голосе */
-        .v-box { padding: 8px 15px; display: flex; align-items: center; gap: 8px; color: #949ba4; }
+        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
+        .ch-box { padding: 8px 15px; display: flex; align-items: center; gap: 8px; color: #949ba4; }
+        
+        /* Юзеры в голосе */
         .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 6px; }
         .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 4px 0; }
         
-        /* АВАТАРКА С ПОДСВЕТКОЙ РАЦИИ */
+        /* Аватарка с подсветкой */
         .ava { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s; }
         .on-air { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.1); background-color: var(--green) !important; }
 
-        /* Основная зона */
-        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+        /* Сообщения */
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .m-u { font-weight: bold; color: white; margin-right: 8px; }
         .m-u.admin { color: var(--gold); }
 
-        /* КНОПКА РАЦИИ */
-        .radio-box { padding: 10px 20px; background: rgba(0,0,0,0.2); display: flex; align-items: center; gap: 15px; }
-        .ptt-btn { flex: 1; background: var(--accent); color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; }
-        .ptt-btn:active { background: var(--green); transform: translateY(2px); }
-        .ptt-btn.disabled { background: #4f545c; cursor: not-allowed; }
+        /* Кнопка рации */
+        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 10px; }
+        .ptt-btn { background: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
+        .ptt-btn:active { background: var(--green); transform: scale(0.98); }
+        .v-status { font-size: 10px; text-align: center; color: var(--red); font-weight: bold; }
 
-        /* Модалка настроек */
+        /* Настройки */
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .m-content { background: var(--bg); padding: 20px; border-radius: 10px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
+        .m-content { background: var(--bg); padding: 20px; border-radius: 10px; width: 320px; display: flex; flex-direction: column; gap: 10px; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 8px; border-radius: 5px; }
     </style>
 </head>
@@ -47,9 +47,11 @@
 
 <div id="modal">
     <div class="m-content">
-        <h3>Настройки</h3>
+        <h3>Устройства</h3>
         <input type="text" id="set-nick" placeholder="Твой ник">
+        <label>Микрофон:</label>
         <select id="mic-list"></select>
+        <label>Выход звука:</label>
         <select id="speaker-list"></select>
         <button class="ptt-btn" onclick="saveSettings()">Сохранить</button>
     </div>
@@ -58,22 +60,22 @@
 <div class="sidebar">
     <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer">⚙️</span></div>
     <div class="cat">Текстовые каналы</div>
-    <div class="v-box"># общее-семейное</div>
+    <div class="ch-box"># общее-семейное</div>
     
     <div class="cat">Голосовая рация</div>
-    <div class="v-box" style="color:var(--green)">● В ЭФИРЕ</div>
+    <div class="ch-box" id="net-st" style="color:var(--red); font-size: 12px;">● ОЖИДАНИЕ СЕТИ...</div>
     <div id="v-users" class="v-list"></div>
 </div>
 
 <div class="main">
     <div id="msgs"></div>
     
-    <!-- ИНТЕРФЕЙС РАЦИИ -->
     <div class="radio-box">
+        <div id="v-info" class="v-status">МИКРОФОН ВЫКЛЮЧЕН</div>
         <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ, ЧТОБЫ ГОВОРИТЬ 🎤</button>
     </div>
 
-    <div style="padding:10px 20px;"><input type="text" id="ui" style="width:100%;" placeholder="Написать в чат..." autocomplete="off"></div>
+    <div style="padding:10px 20px;"><input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:12px; border-radius:8px; color:white; outline:none;" placeholder="Написать сообщение..." autocomplete="off"></div>
 </div>
 
 <script>
@@ -92,36 +94,62 @@
     const icqSound = new Audio('https://www.myinstants.com/media/sounds/icq-uh-oh.mp3');
 
     let myName = localStorage.getItem('chat_nick') || "Геймер";
-    let myColor = "#5865f2";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let selectedSpeaker = localStorage.getItem('chat_speaker') || 'default';
 
-    const myPeerId = 'gr-' + Math.random().toString(36).substr(2, 9);
-    const peer = new Peer(myPeerId, { config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} });
+    // УНИКАЛЬНЫЙ ID ДЛЯ РАЦИИ
+    const myPeerId = 'gamer-' + Math.random().toString(36).substr(2, 6);
     
+    // ИСПРАВЛЕННЫЕ НАСТРОЙКИ СЕРВЕРА (Более стабильные)
+    const peer = new Peer(myPeerId, {
+        host: '0.peerjs.com', // Явно указываем хост
+        secure: true,
+        port: 443,
+        config: {'iceServers': [
+            { 'urls': 'stun:stun.l.google.com:19302' },
+            { 'urls': 'stun:stun1.l.google.com:19302' },
+            { 'urls': 'stun:stun2.l.google.com:19302' }
+        ]}
+    });
+
     let myStream = null;
 
-    // Инициализация микрофона сразу для рации
-    navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } }).then(stream => {
-        myStream = stream;
-        myStream.getAudioTracks().forEach(t => t.enabled = false); // Выключаем звук изначально
-        db.ref('voice_active').child(myName).set({ id: myPeerId, speaking: false });
-        db.ref('voice_active').child(myName).onDisconnect().remove();
-    }).catch(() => alert("Нужен доступ к микрофону!"));
+    // Статус подключения к серверу голоса
+    peer.on('open', () => {
+        document.getElementById('net-st').innerHTML = "● СВЯЗЬ УСТАНОВЛЕНА";
+        document.getElementById('net-st').style.color = "var(--green)";
+        initMic();
+    });
 
-    // ЛОГИКА КНОПКИ РАЦИИ
+    peer.on('error', (err) => {
+        console.error(err);
+        document.getElementById('net-st').innerHTML = "● ОШИБКА СЕТИ (ПЕРЕЗАГРУЗИ)";
+    });
+
+    function initMic() {
+        navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } }).then(stream => {
+            myStream = stream;
+            myStream.getAudioTracks().forEach(t => t.enabled = false);
+            db.ref('voice_active').child(myName).set({ id: myPeerId, speaking: false });
+            db.ref('voice_active').child(myName).onDisconnect().remove();
+        }).catch(() => alert("Разреши микрофон в браузере!"));
+    }
+
+    // ЛОГИКА РАЦИИ
     const pttBtn = document.getElementById('ptt-trigger');
-    
     const startTalk = () => {
         if (!myStream) return;
         myStream.getAudioTracks().forEach(t => t.enabled = true);
         db.ref('voice_active').child(myName).update({ speaking: true });
+        document.getElementById('v-info').innerText = "ВЫ В ЭФИРЕ!";
+        document.getElementById('v-info').style.color = "var(--green)";
     };
-
     const stopTalk = () => {
         if (!myStream) return;
         myStream.getAudioTracks().forEach(t => t.enabled = false);
         db.ref('voice_active').child(myName).update({ speaking: false });
+        document.getElementById('v-info').innerText = "МИКРОФОН ВЫКЛЮЧЕН";
+        document.getElementById('v-info').style.color = "var(--red)";
     };
 
     pttBtn.addEventListener('mousedown', startTalk);
@@ -129,33 +157,27 @@
     pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startTalk(); });
     pttBtn.addEventListener('touchend', stopTalk);
 
-    // Прием звонков
+    // Прием рации
     peer.on('call', call => {
         call.answer(myStream);
         call.on('stream', s => {
             const a = new Audio(); a.srcObject = s;
             if (a.setSinkId) a.setSinkId(selectedSpeaker);
-            a.play();
+            a.play().catch(() => {});
         });
     });
 
-    // Подключение к другим участникам
+    // Авто-подключение к семье
     db.ref('voice_active').on('child_added', s => {
         const d = s.val();
         if (d.id !== myPeerId) peer.call(d.id, myStream);
     });
 
-    // ОТОБРАЖЕНИЕ СПИСКА И ГОРЕНИЯ АВАТАРОК
     db.ref('voice_active').on('value', s => {
         const b = document.getElementById('v-users'); b.innerHTML = "";
         s.forEach(c => {
             const u = c.val();
-            const isSpeaking = u.speaking ? 'on-air' : '';
-            b.innerHTML += `
-                <div class="v-u">
-                    <div class="ava ${isSpeaking}" style="background:#5865f2">${c.key.charAt(0)}</div>
-                    <span style="${u.speaking?'color:white;font-weight:bold':''}">${c.key}</span>
-                </div>`;
+            b.innerHTML += `<div class="v-u"><div class="ava ${u.speaking?'on-air':''}" style="background:#5865f2">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
         });
     });
 
@@ -164,38 +186,31 @@
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
         navigator.mediaDevices.enumerateDevices().then(devices => {
-            const mS = document.getElementById('mic-list');
-            const sS = document.getElementById('speaker-list');
+            const mS = document.getElementById('mic-list'); const sS = document.getElementById('speaker-list');
             mS.innerHTML = ""; sS.innerHTML = "";
             devices.forEach(d => {
-                const opt = `<option value="${d.deviceId}">${d.label || 'Устройство'}</option>`;
+                const opt = `<option value="${d.deviceId}" ${d.deviceId===(d.kind==='audioinput'?selectedMic:selectedSpeaker)?'selected':''}>${d.label || 'Устройство'}</option>`;
                 if (d.kind === 'audioinput') mS.innerHTML += opt;
                 if (d.kind === 'audiooutput') sS.innerHTML += opt;
             });
         });
     }
-
     function saveSettings() {
-        myName = document.getElementById('set-nick').value || myName;
-        selectedMic = document.getElementById('mic-list').value;
-        selectedSpeaker = document.getElementById('speaker-list').value;
-        localStorage.setItem('chat_nick', myName);
-        localStorage.setItem('chat_mic', selectedMic);
-        localStorage.setItem('chat_speaker', selectedSpeaker);
-        location.reload(); // Перезагружаем для применения микрофона
+        localStorage.setItem('chat_nick', document.getElementById('set-nick').value || myName);
+        localStorage.setItem('chat_mic', document.getElementById('mic-list').value);
+        localStorage.setItem('chat_speaker', document.getElementById('speaker-list').value);
+        location.reload();
     }
 
     // ЧАТ
     const ui = document.getElementById('ui');
     ui.onkeydown = (e) => {
         if (e.key === 'Enter' && ui.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: ui.value });
-            ui.value = "";
+            db.ref('global_chat').push().set({ u: myName, t: ui.value }); ui.value = "";
         }
     };
-    db.ref('global_chat').limitToLast(30).on('child_added', s => {
-        const d = s.val();
-        const m = document.createElement('div'); m.className = 'msg';
+    db.ref('global_chat').limitToLast(20).on('child_added', s => {
+        const d = s.val(); const m = document.createElement('div'); m.style.marginBottom="8px";
         m.innerHTML = `<span class="m-u ${d.u==='CREATIV'?'admin':''}">${d.u}:</span><span style="color:#dcddde">${d.t}</span>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
