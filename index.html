@@ -3,64 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v49.0 - Victory Edition</title>
+    <title>GamerChat v50.0 - Visual Radar</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
-        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; color: white; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
-        .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; }
-        .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-        .ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.1s; }
-        .glow { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); }
+        
+        /* ЮЗЕРЫ И ПОЛОСКИ ГРОМКОСТИ */
+        .v-list { padding-left: 15px; display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .v-u-card { display: flex; flex-direction: column; gap: 5px; background: rgba(0,0,0,0.1); padding: 8px; border-radius: 5px; margin-right: 10px; }
+        .v-u-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white; font-weight: bold; }
+        
+        /* ИНДИКАТОР */
+        .vol-bar-bg { width: 100%; height: 4px; background: #1e1f22; border-radius: 2px; overflow: hidden; }
+        .vol-bar-fill { width: 0%; height: 100%; background: var(--green); transition: width 0.1s; }
+
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
-        .e-item { cursor: pointer; font-size: 22px; }
-        .voice-controls { padding: 15px 20px; background: rgba(0,0,0,0.3); border-top: 1px solid #222; }
-        .btn { border: none; padding: 16px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 14px; }
-        .btn-join { background: var(--accent); color: white; }
-        .btn-leave { background: var(--red); color: white; display: none; }
+        .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; }
+        .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; text-transform: uppercase; width: 100%; font-size: 16px; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; }
-        .color-p { display: flex; gap: 8px; flex-wrap: wrap; }
-        .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-        .color-dot.selected { border-color: white; }
     </style>
 </head>
-<body onclick="resAudio()">
-<div id="audio-dump" style="display:none"></div>
+<body onclick="if(window.AudioContext) new AudioContext().resume()">
+<div id="audio-storage" style="display:none"></div>
 
 <div id="modal">
     <div class="m-content">
-        <h3>Профиль</h3>
+        <h3>Настройки</h3>
         <input type="text" id="set-nick">
-        <div class="color-p" id="color-picker"></div>
         <label>Микрофон:</label> <select id="mic-list"></select>
         <label>Динамики:</label> <select id="speaker-list"></select>
-        <button class="btn btn-join" onclick="saveSettings()">Применить</button>
+        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">OK</button>
     </div>
 </div>
 
 <div class="sidebar">
-    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer; font-size:18px;">&#9881;</span></div>
+    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer; font-size:18px;">⚙️</span></div>
     <div class="cat">Голосовая связь</div>
-    <div id="net-st" style="padding: 0 15px 10px; color:var(--red); font-size: 10px; font-weight:bold">● СЕТЬ: ВНЕ КАНАЛА</div>
     <div id="v-users" class="v-list"></div>
 </div>
 
 <div class="main">
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
-    <div class="voice-controls">
-        <button id="btn-toggle" class="btn btn-join" onclick="joinVoice()">Войти в голосовой канал</button>
-        <button id="btn-leave" class="btn btn-leave" onclick="leaveVoice()">Выйти из канала</button>
+    <div style="padding: 15px 20px; background: rgba(0,0,0,0.3);">
+        <button id="btn-toggle" class="ptt-btn" onclick="joinVoice()">ВОЙТИ В КАНАЛ</button>
+        <button id="btn-leave" class="ptt-btn" style="background:var(--red); display:none;" onclick="location.reload()">ВЫЙТИ</button>
     </div>
-    <div style="padding:15px 20px; background: var(--bg);"><input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:12px; border-radius:8px; color:white; outline:none;" placeholder="Сообщение..." autocomplete="off"></div>
+    <div style="padding:15px 20px;"><input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:12px; border-radius:8px; color:white; outline:none;" placeholder="Написать..." autocomplete="off"></div>
 </div>
 
 <script>
@@ -76,10 +74,8 @@
 
     firebase.initializeApp(cfg);
     const db = firebase.database();
-    const icqSound = new Audio('https://www.myinstants.com/media/sounds/icq-uh-oh.mp3');
-
+    
     let myName = localStorage.getItem('chat_nick') || "Геймер";
-    let myColor = localStorage.getItem('chat_color') || "#5865f2";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let selectedSpk = localStorage.getItem('chat_spk') || 'default';
     
@@ -87,42 +83,46 @@
     let connections = {};
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
-    function resAudio() { if (window.AudioContext) new AudioContext().resume(); }
-
     async function joinVoice() {
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { deviceId: selectedMic, echoCancellation: true, noiseSuppression: true } 
+                audio: { deviceId: selectedMic, echoCancellation: true } 
             });
             document.getElementById('btn-toggle').style.display = "none";
             document.getElementById('btn-leave').style.display = "block";
-            document.getElementById('net-st').style.color = "var(--green)";
-            document.getElementById('net-st').innerText = "● СЕТЬ: В КАНАЛЕ";
-            db.ref('voice_final').child(myName).set({ id: myPeerId, color: myColor });
-            db.ref('voice_final').child(myName).onDisconnect().remove();
-            monitorVol(myStream, myName);
+
+            db.ref('voice_v11').child(myName).set({ id: myPeerId });
+            db.ref('voice_v11').child(myName).onDisconnect().remove();
+            
+            visualize(myStream, myName); // Свой индикатор
             startEngine();
-        } catch (e) { alert("Микрофон!"); }
+        } catch (e) { alert("Микрофон не активен!"); }
     }
 
     function startEngine() {
-        db.ref('voice_final').on('value', s => {
+        db.ref('voice_v11').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
-                const u = c.val();
-                b.innerHTML += `<div class="v-u"><div class="ava" id="ava-${c.key}" style="background:${u.color}">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
-                if (c.key !== myName && !connections[c.key]) createPC(c.key, u.id);
+                b.innerHTML += `
+                <div class="v-u-card">
+                    <div class="v-u-row">
+                        <div class="ava" style="background:#5865f2">${c.key.charAt(0)}</div>
+                        <span>${c.key}</span>
+                    </div>
+                    <div class="vol-bar-bg"><div class="vol-bar-fill" id="vol-${c.key}"></div></div>
+                </div>`;
+                if (c.key !== myName && !connections[c.key]) createPC(c.key, c.val().id);
             });
         });
 
-        db.ref('signals_final').child(myName).on('child_added', async s => {
+        db.ref('signals_v11').child(myName).on('child_added', async s => {
             const d = s.val(); if (!connections[d.from]) createPC(d.from, d.id);
             const pc = connections[d.from];
             try {
                 if (d.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
                     const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
-                    sendSig(d.from, { type: 'answer', answer: ans });
+                    db.ref('signals_v11').child(d.from).push({ type: 'answer', answer: ans, from: myName });
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice') {
@@ -137,64 +137,47 @@
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        pc.onicecandidate = e => { if (e.candidate) sendSig(target, { type: 'ice', ice: e.candidate }); };
+        pc.onicecandidate = e => { if (e.candidate) db.ref('signals_v11').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); };
         
         pc.ontrack = e => {
-            console.log("ПОЛУЧЕН ПОТОК ОТ: " + target);
             const a = document.createElement('audio');
-            a.autoplay = true;
-            // ГЛАВНОЕ ИСПРАВЛЕНИЕ: берем нулевой поток из массива
-            a.srcObject = e.streams[0]; 
+            a.autoplay = true; a.srcObject = e.streams[0]; 
             if (a.setSinkId) a.setSinkId(selectedSpk);
-            document.getElementById('audio-dump').appendChild(a);
-            a.play().then(() => console.log("ЗВУК ПОШЕЛ В КОЛОНКИ ОТ: " + target)).catch(() => {});
-            monitorVol(e.streams[0], target);
+            document.getElementById('audio-storage').appendChild(a);
+            visualize(e.streams[0], target); // Индикатор собеседника
         };
 
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
                 const off = await pc.createOffer(); await pc.setLocalDescription(off);
-                sendSig(target, { type: 'offer', offer: off });
+                db.ref('signals_v11').child(target).push({ type: 'offer', offer: off, from: myName });
             };
         }
     }
 
-    function sendSig(to, data) { db.ref('signals_final').child(to).push({ ...data, from: myName }); }
-
-    function monitorVol(stream, name) {
-        try {
-            const ctx = new AudioContext();
-            const src = ctx.createMediaStreamSource(stream);
-            const anz = ctx.createAnalyser(); src.connect(anz);
-            const dat = new Uint8Array(anz.frequencyBinCount);
-            function check() {
-                if (!stream.active) return;
-                anz.getByteFrequencyData(dat);
-                let v = dat.reduce((a,b) => a+b) / dat.length;
-                const el = document.getElementById('ava-' + name);
-                if (el) el.classList.toggle('glow', v > 5);
-                requestAnimationFrame(check);
-            }
-            check();
-        } catch(e) {}
+    function visualize(stream, name) {
+        const ctx = new AudioContext();
+        const src = ctx.createMediaStreamSource(stream);
+        const anz = ctx.createAnalyser(); src.connect(anz);
+        const dat = new Uint8Array(anz.frequencyBinCount);
+        function frame() {
+            anz.getByteFrequencyData(dat);
+            let v = dat.reduce((a,b) => a+b) / dat.length;
+            const bar = document.getElementById('vol-' + name);
+            if (bar) bar.style.width = Math.min(100, v * 5) + '%';
+            requestAnimationFrame(frame);
+        }
+        frame();
     }
-
-    function leaveVoice() { location.reload(); }
 
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
-        const cp = document.getElementById('color-picker'); cp.innerHTML = "";
-        ["#5865f2", "#ed4245", "#3ba55d", "#faa81a", "#eb459e", "#9b59b6", "#1abc9c", "#f1c40f"].forEach(c => {
-            const d = document.createElement('div'); d.className = `color-dot ${c === myColor ? 'selected' : ''}`;
-            d.style.background = c; d.onclick = () => { myColor = c; openSettings(); };
-            cp.appendChild(d);
-        });
         navigator.mediaDevices.enumerateDevices().then(devs => {
             const mS = document.getElementById('mic-list'); const sS = document.getElementById('speaker-list');
             mS.innerHTML = ""; sS.innerHTML = "";
             devs.forEach(d => {
-                const opt = `<option value="${d.deviceId}" ${d.deviceId===(d.kind==='audioinput'?selectedMic:selectedSpk)?'selected':''}>${d.label || 'Устройство'}</option>`;
+                const opt = `<option value="${d.deviceId}" ${d.deviceId===(d.kind==='audioinput'?selectedMic:selectedSpk)?'selected':''}>${d.label || 'Device'}</option>`;
                 if (d.kind === 'audioinput') mS.innerHTML += opt;
                 if (d.kind === 'audiooutput') sS.innerHTML += opt;
             });
@@ -203,31 +186,21 @@
 
     window.saveSettings = () => {
         localStorage.setItem('chat_nick', document.getElementById('set-nick').value || myName);
-        localStorage.setItem('chat_color', myColor);
         localStorage.setItem('chat_mic', document.getElementById('mic-list').value);
         localStorage.setItem('chat_spk', document.getElementById('speaker-list').value);
         location.reload();
     };
 
-    const emojis = ["&#128512;","&#128514;","&#128522;","&#128525;","&#128526;","&#129300;","&#128077;","&#128293;","&#10024;","&#127881;","&#128075;","&#128557;","&#128561;","&#128545;","&#128128;","&#128169;","&#10084;","&#9989;","&#10060;","&#127918;"];
-    emojis.forEach(e => {
-        const s = document.createElement('span'); s.className = 'e-item'; s.innerHTML = e;
-        s.onclick = () => { document.getElementById('ui').value += s.innerText; document.getElementById('ui').focus(); };
-        document.getElementById('eb').appendChild(s);
-    });
-
     document.getElementById('ui').onkeydown = (e) => {
         if (e.key === 'Enter' && e.target.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: e.target.value, color: myColor }); e.target.value = "";
+            db.ref('global_chat').push().set({ u: myName, t: e.target.value }); e.target.value = "";
         }
     };
-
-    db.ref('global_chat').limitToLast(30).on('child_added', s => {
-        const d = s.val(); const m = document.createElement('div'); m.className = 'msg';
-        m.innerHTML = `<div class="ava" style="background:${d.color || '#5865f2'}">${d.u.charAt(0)}</div><div><span class="m-u">${d.u}:</span><span style="color:#dcddde">${d.t}</span></div>`;
+    db.ref('global_chat').limitToLast(20).on('child_added', s => {
+        const d = s.val(); const m = document.createElement('div');
+        m.innerHTML = `<span style="font-weight:bold">${d.u}:</span> <span>${d.t}</span>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        if (d.u !== myName) icqSound.play().catch(()=>{});
     });
 </script>
 </body>
