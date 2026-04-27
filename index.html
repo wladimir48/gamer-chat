@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
+    <!-- Измененные ссылки на скрипты -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https:// www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         body { background-color: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; }
@@ -21,16 +22,14 @@
     </style>
 </head>
 <body>
-    <!-- Левая панель -->
     <div class="servers">
         <div class="icon" onclick="location.reload()" title="Текстовый чат">G</div>
         <div class="icon" style="margin-top:10px; background:#23a559;" onclick="toggleVoice()" title="Голосовой канал">🎤</div>
     </div>
 
-    <!-- Окно голосового чата -->
     <div id="voice-wrap">
         <div style="padding:10px; background:#2b2d31; display:flex; justify-content:space-between; align-items:center;">
-            <span>Голосовой канал: GamerChat</span>
+            <span>Голосовой канал</span>
             <button onclick="toggleVoice()" style="cursor:pointer; background:#f23f43; border:none; color:white; padding:5px 15px; border-radius:5px;">ВЫЙТИ</button>
         </div>
         <iframe src="https://jit.si" allow="microphone; camera" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
@@ -62,9 +61,7 @@
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(cfg);
             const db = firebase.database();
-
-            let myName = prompt("Введи свой никнейм:", "Геймер");
-            if (!myName) myName = "Аноним";
+            let myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
 
             db.ref('.info/connected').on('value', s => {
                 const statusEl = document.getElementById('st');
