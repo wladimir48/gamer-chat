@@ -2,46 +2,94 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v8.0 - Final</title>
+    <title>Discord Clone v12.0 - Emojis</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- Библиотека для выбора смайликов -->
+    <script src="https://jsdelivr.net"></script>
     <style>
-        body { background-color: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; }
-        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 12px; font-size: 20px; text-decoration: none; }
-        .icon:hover { border-radius: 30%; background-color: #4752c4; }
-        .icon.voice { background-color: #23a559; }
-
-        .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; }
-        #st { text-align: center; color: #23a559; padding: 6px; font-size: 0.75rem; font-weight: bold; background: #2b2d31; }
-        #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        :root {
+            --bg-guilds: #1e1f22; --bg-sidebar: #2b2d31; --bg-chat: #313338;
+            --bg-input: #383a40; --text-main: #dbdee1; --text-muted: #949ba4;
+        }
+        body { background-color: var(--bg-guilds); color: var(--text-main); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
-        .msg { margin-bottom: 16px; background: rgba(79, 84, 92, 0.16); padding: 12px; border-radius: 8px; border-left: 4px solid #5865f2; }
-        .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .author small { color: #949ba4; font-size: 0.75em; margin-left: 8px; }
-        .del-btn { color: #f23f43; cursor: pointer; }
+        /* 1. Серверы */
+        .guilds { width: 72px; background: var(--bg-guilds); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; flex-shrink: 0; }
+        .g-icon { width: 48px; height: 48px; background: var(--bg-chat); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-weight: bold; }
+        .g-icon:hover, .g-icon.active { border-radius: 15px; background: #5865f2; color: white; }
 
-        .chat-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid #444; }
-        .input-box { padding: 20px; }
-        input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 14px; color: white; outline: none; box-sizing: border-box; }
+        /* 2. Каналы */
+        .sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+        .s-header { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); color: white; }
+        .c-list { flex: 1; padding: 8px; overflow-y: auto; }
+        .c-cat { color: var(--text-muted); text-transform: uppercase; font-size: 12px; font-weight: bold; margin: 16px 0 4px 8px; }
+        .c-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
+        .c-item:hover, .c-item.active { background: #35373c; color: var(--text-main); }
+        
+        /* 3. Основной чат */
+        .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
+        .chat-h { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+        #msgs { flex: 1; overflow-y: auto; padding: 16px 0; }
+        .msg { display: flex; padding: 4px 16px; gap: 16px; }
+        .m-ava { width: 40px; height: 40px; border-radius: 50%; background: #5865f2; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
+        .m-user { font-weight: 500; color: white; margin-right: 8px; }
+        .m-time { font-size: 12px; color: var(--text-muted); }
+
+        /* Ввод со смайликом */
+        .chat-i { padding: 0 16px 24px 16px; position: relative; }
+        .input-wrapper { display: flex; background: var(--bg-input); border-radius: 8px; align-items: center; padding: 0 12px; }
+        input { flex: 1; background: transparent; border: none; padding: 11px; color: var(--text-main); outline: none; }
+        #emoji-btn { cursor: pointer; font-size: 20px; filter: grayscale(1); transition: 0.2s; }
+        #emoji-btn:hover { filter: grayscale(0); transform: scale(1.1); }
+
+        /* 4. Участники */
+        .members { width: 240px; background: var(--bg-sidebar); padding: 8px; flex-shrink: 0; border-left: 1px solid rgba(0,0,0,0.1); }
+        .m-group { color: var(--text-muted); font-size: 12px; font-weight: bold; padding: 16px 8px 4px 8px; }
+        .m-card { display: flex; align-items: center; gap: 12px; padding: 6px 8px; }
+
+        .u-panel { background: #232428; padding: 8px; display: flex; align-items: center; gap: 8px; }
     </style>
 </head>
 <body>
 
-    <div class="servers">
-        <div class="icon" onclick="location.reload()" title="Обновить чат">G</div>
-        <!-- ПРЯМАЯ ССЫЛКА НА ТЕЛЕМОСТ (откроется в новой вкладке и точно заработает) -->
-        <a href="https://yandex.ru" target="_blank" class="icon voice" title="Зайти в голос">🎤</a>
-    </div>
+<div class="guilds">
+    <div class="g-icon active">C</div>
+    <div class="g-icon" style="color:#23a559">+</div>
+</div>
 
-    <div class="chat-area">
-        <div id="st">ПОДКЛЮЧЕНИЕ...</div>
-        <div id="msgs"></div>
-        <div class="input-box">
-            <input type="text" id="ui" placeholder="Напиши сообщение или вставь ссылку на картинку..." autocomplete="off">
+<div class="sidebar">
+    <div class="s-header">Сервер CREATIV ⌄</div>
+    <div class="c-list">
+        <div class="c-cat">Текстовые каналы</div>
+        <div class="c-item active"># основной</div>
+        <div class="c-cat">Голосовые каналы</div>
+        <div class="c-item">🔊 Основной</div>
+    </div>
+    <div class="u-panel">
+        <div class="m-ava" style="width:32px; height:32px; font-size:12px;" id="my-ava">?</div>
+        <div style="flex:1; font-size:13px;">
+            <div style="font-weight:bold; color:white;" id="my-nick">...</div>
+            <div style="color:var(--text-muted); font-size:11px;">#онлайн</div>
         </div>
     </div>
+</div>
+
+<div class="chat">
+    <div class="chat-h"># основной</div>
+    <div id="msgs"></div>
+    <div class="chat-i">
+        <div class="input-wrapper">
+            <input type="text" id="ui" placeholder="Написать в #основной">
+            <div id="emoji-btn">😀</div>
+        </div>
+    </div>
+</div>
+
+<div class="members">
+    <div class="m-group">В СЕТИ</div>
+    <div id="member-list"></div>
+</div>
 
 <script>
     const cfg = {
@@ -54,51 +102,64 @@
         appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
-    const notifySound = new Audio('https://githubusercontent.com');
     firebase.initializeApp(cfg);
     const db = firebase.database();
-
-    let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:", "Геймер") || "Аноним";
+    let myName = localStorage.getItem('chat_nick') || prompt("Твой ник:", "Геймер") || "Аноним";
     localStorage.setItem('chat_nick', myName);
+    document.getElementById('my-nick').innerText = myName;
+    document.getElementById('my-ava').innerText = myName[0].toUpperCase();
 
-    db.ref('.info/connected').on('value', s => {
-        const st = document.getElementById('st');
-        st.innerText = s.val() ? "В СЕТИ" : "ОФФЛАЙН";
-        st.style.color = s.val() ? "#23a559" : "#f23f43";
+    // --- ЛОГИКА ЭМОДЗИ ---
+    const picker = new EmojiButton({
+        position: 'top-start',
+        theme: 'dark',
+        autoHide: false
+    });
+    const trigger = document.querySelector('#emoji-btn');
+    const input = document.querySelector('#ui');
+
+    picker.on('emoji', selection => {
+        input.value += selection.emoji;
+        input.focus();
     });
 
-    document.getElementById('ui').onkeypress = function(e) {
-        if (e.key === 'Enter' && this.value.trim() !== "") {
-            db.ref('global_chat').push().set({ 
-                u: myName, t: this.value,
-                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+    trigger.addEventListener('click', () => picker.togglePicker(trigger));
+
+    // --- ОСТАЛЬНАЯ ЛОГИКА ---
+    const myStatusRef = db.ref('presence/' + myName);
+    myStatusRef.set({ name: myName }).onDisconnect().remove();
+
+    db.ref('presence').on('value', s => {
+        const list = document.getElementById('member-list');
+        list.innerHTML = "";
+        s.forEach(child => {
+            const u = child.val();
+            list.innerHTML += `<div class="m-card"><div class="m-ava" style="width:32px; height:32px; font-size:14px;">${u.name[0]}</div><div style="font-weight:500;">${u.name}</div></div>`;
+        });
+    });
+
+    input.onkeypress = (e) => {
+        if(e.key === 'Enter' && input.value.trim()){
+            db.ref('global_chat').push().set({
+                u: myName, t: input.value, 
+                time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
             });
-            this.value = "";
+            input.value = "";
         }
     };
 
     db.ref('global_chat').limitToLast(50).on('child_added', s => {
         const d = s.val();
-        const key = s.key;
         const m = document.createElement('div');
         m.className = 'msg';
-        m.id = 'msg-' + key;
-
-        let txt = d.t;
-        const isImg = /(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|webp|jpeg)/i.test(d.t);
-        if (isImg) txt = `${d.t}<br><img src="${d.t}" class="chat-img" onerror="this.style.display='none'">`;
-
-        let del = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">×</span>` : "";
-
-        m.innerHTML = `<div class="author"><span>${d.u} <small>${d.time || ''}</small></span>${del}</div><div>${txt}</div>`;
+        m.innerHTML = `
+            <div class="m-ava">${d.u[0]}</div>
+            <div class="m-body">
+                <div><span class="m-user">${d.u}</span><span class="m-time">${d.time || ''}</span></div>
+                <div class="m-text">${d.t}</div>
+            </div>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        if (d.u !== myName) notifySound.play().catch(() => {});
-    });
-
-    window.deleteMsg = function(k) { if(confirm("Удалить?")) db.ref('global_chat').child(k).remove(); };
-    db.ref('global_chat').on('child_removed', s => { 
-        const el = document.getElementById('msg-' + s.key); if (el) el.remove(); 
     });
 </script>
 </body>
