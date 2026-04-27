@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat v17.0 - Fixed</title>
+    <title>GamerChat v19.0 - VK Engine</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -20,31 +20,29 @@
 
         .g-icon { width: 48px; height: 48px; background: var(--bg-chat); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-weight: bold; }
         .g-icon:hover { border-radius: 15px; background: var(--accent); }
-        .s-header { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); color: white; display: flex; justify-content: space-between; align-items: center; }
         
-        .c-item { padding: 8px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; }
-        .c-item:hover { background: #35373c; color: var(--text-main); }
-        .c-item.active { background: #3f4147; color: white; }
+        .s-header { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.1); color: white; display: flex; justify-content: space-between; align-items: center; }
+        
+        .c-item { padding: 8px 12px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 8px; text-decoration: none; font-size: 14px; }
+        .c-item:hover, .c-item.active { background: #35373c; color: var(--text-main); }
 
-        #msgs { flex: 1; overflow-y: auto; padding: 16px 0; scroll-behavior: smooth; }
-        .msg { display: flex; padding: 4px 16px; gap: 16px; }
+        #msgs { flex: 1; overflow-y: auto; padding: 16px 0; }
+        .msg { display: flex; padding: 4px 16px; gap: 16px; margin-bottom: 8px; }
         .m-ava { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; text-transform: uppercase; }
         .m-user { font-weight: bold; color: white; margin-right: 8px; }
         .m-user.admin { color: var(--admin); }
-        .m-time { font-size: 12px; color: var(--text-muted); }
-
-        .chat-i { padding: 20px; position: relative; }
+        
+        .chat-i { padding: 20px; }
         .input-box { background: var(--bg-input); border-radius: 8px; display: flex; align-items: center; padding: 0 12px; }
         input { flex: 1; background: transparent; border: none; padding: 12px; color: white; outline: none; }
-        .emoji-btn { cursor: pointer; font-size: 20px; opacity: 0.7; padding: 5px; }
+        .emoji-btn { cursor: pointer; font-size: 20px; opacity: 0.7; }
 
         #emoji-picker { 
             position: absolute; bottom: 80px; left: 20px; background: #232428; 
             border: 1px solid #111; border-radius: 8px; display: none; 
-            grid-template-columns: repeat(5, 1fr); padding: 8px; gap: 4px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100;
+            grid-template-columns: repeat(5, 1fr); padding: 8px; gap: 4px; z-index: 100;
         }
-        .emoji-pick { cursor: pointer; font-size: 22px; padding: 4px; text-align: center; }
+        .emoji-pick { cursor: pointer; font-size: 22px; padding: 4px; }
 
         .m-card { display: flex; align-items: center; gap: 10px; padding: 6px; }
         .m-group { font-size: 11px; font-weight: bold; color: var(--text-muted); padding: 12px 8px 4px 8px; }
@@ -54,7 +52,6 @@
 
 <div class="guilds">
     <div class="g-icon" style="background: var(--accent); color: white;" onclick="location.reload()">C</div>
-    <div class="g-icon" style="color:#23a559">+</div>
 </div>
 
 <div class="sidebar">
@@ -64,18 +61,17 @@
         <div class="c-item active"># основной</div>
         
         <div class="m-group">ГОЛОСОВЫЕ КАНАЛЫ</div>
-        <!-- Прямая ссылка на комнату Телемоста -->
-        <a href="https://yandex.ru" target="_blank" class="c-item">
+        <!-- Прямая ссылка на звонок VK Calls -->
+        <a href="https://vk.com" target="_blank" class="c-item" id="voice-link">
             <span>🔊</span> Основной
         </a>
     </div>
-    <!-- ПАНЕЛЬ ПОЛЬЗОВАТЕЛЯ УДАЛЕНА -->
 </div>
 
 <div class="chat">
     <div class="s-header">
         <span># основной</span>
-        <span id="conn-st" style="font-size: 10px; color: #f23f43;">ОФФЛАЙН</span>
+        <span id="conn-st" style="font-size: 10px; color: #f23f43;">ПОДКЛЮЧЕНИЕ...</span>
     </div>
     <div id="msgs"></div>
     <div id="emoji-picker"></div>
@@ -108,66 +104,60 @@
     
     let myName = localStorage.getItem('chat_nick');
     if (!myName) {
-        myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
+        myName = prompt("Введи свой ник:") || "Геймер";
         localStorage.setItem('chat_nick', myName);
     }
 
+    // Проверка связи с Firebase
     db.ref('.info/connected').on('value', s => {
-        const st = document.getElementById('conn-st');
-        st.innerText = s.val() ? "В СЕТИ" : "ОФФЛАЙН";
-        st.style.color = s.val() ? "#23a559" : "#f23f43";
+        document.getElementById('conn-st').innerText = s.val() ? "ОНЛАЙН" : "ОФФЛАЙН";
+        document.getElementById('conn-st').style.color = s.val() ? "#23a559" : "#f23f43";
     });
-
-    // Эмодзи
-    const emojis = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
-    const picker = document.getElementById('emoji-picker');
-    emojis.forEach(e => {
-        const span = document.createElement('span');
-        span.className = 'emoji-pick'; span.innerText = e;
-        span.onclick = () => { document.getElementById('ui').value += e; picker.style.display = 'none'; document.getElementById('ui').focus(); };
-        picker.appendChild(span);
-    });
-    function toggleEmojis() { picker.style.display = (picker.style.display === 'grid') ? 'none' : 'grid'; }
 
     // Список участников
     const presenceRef = db.ref('presence/' + myName);
     presenceRef.set({ name: myName }).onDisconnect().remove();
     db.ref('presence').on('value', s => {
         const list = document.getElementById('member-list'); list.innerHTML = "";
-        s.forEach(child => {
-            const u = child.val(); const isAdmin = (u.name === "CREATIV");
-            list.innerHTML += `<div class="m-card">
-                <div class="m-ava" style="width:32px; height:32px; font-size:14px; background:${isAdmin?'var(--admin)':''}">${u.name.charAt(0).toUpperCase()}</div>
-                <div style="font-weight:bold; color:${isAdmin?'var(--admin)':''}">${u.name} ${isAdmin?'👑':''}</div>
-            </div>`;
+        s.forEach(c => {
+            const u = c.val(); const isAdmin = (u.name === "CREATIV");
+            list.innerHTML += `<div class="m-card"><div class="m-ava" style="width:32px; height:32px; font-size:14px; background:${isAdmin?'#f1c40f':''}">${u.name.charAt(0).toUpperCase()}</div><div style="font-weight:bold; color:${isAdmin?'#f1c40f':''}">${u.name} ${isAdmin?'👑':''}</div></div>`;
         });
     });
 
-    // Отправка
+    // Отправка сообщений (исправленный метод)
     const ui = document.getElementById('ui');
     ui.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && ui.value.trim() !== "") {
-            db.ref('global_chat').push().set({
-                u: myName, t: ui.value,
+            const msgData = {
+                u: myName,
+                t: ui.value,
                 time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
-            });
-            ui.value = ""; picker.style.display = 'none';
+            };
+            db.ref('global_chat').push().set(msgData);
+            ui.value = "";
+            picker.style.display = 'none';
         }
     });
 
-    // Чат
+    // Загрузка сообщений
     db.ref('global_chat').limitToLast(50).on('child_added', s => {
         const d = s.val(); const isAdmin = (d.u === "CREATIV");
         const m = document.createElement('div'); m.className = 'msg';
-        m.innerHTML = `
-            <div class="m-ava" style="background:${isAdmin?'var(--admin)':''}">${d.u.charAt(0).toUpperCase()}</div>
-            <div class="m-body">
-                <div><span class="m-user ${isAdmin?'admin':''}">${d.u}</span><span class="m-time">${d.time || ''}</span></div>
-                <div class="m-text">${d.t}</div>
-            </div>`;
+        m.innerHTML = `<div class="m-ava" style="background:${isAdmin?'#f1c40f':''}">${d.u.charAt(0).toUpperCase()}</div><div><span class="m-user ${isAdmin?'admin':''}">${d.u}</span><span style="font-size:12px;color:var(--text-muted)">${d.time||''}</span><div style="margin-top:2px">${d.t}</div></div>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     });
+
+    // Эмодзи
+    const emojis = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
+    const picker = document.getElementById('emoji-picker');
+    emojis.forEach(e => {
+        const span = document.createElement('span'); span.className = 'emoji-pick'; span.innerText = e;
+        span.onclick = () => { ui.value += e; picker.style.display = 'none'; ui.focus(); };
+        picker.appendChild(span);
+    });
+    function toggleEmojis() { picker.style.display = (picker.style.display === 'grid') ? 'none' : 'grid'; }
 </script>
 </body>
 </html>
