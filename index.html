@@ -65,11 +65,19 @@
                 const d = s.val();
                 const m = document.createElement('div');
                 m.className = 'msg';
-                m.innerHTML = `<div class="author">${d.u}</div><div>${d.t}</div>`;
+                
+                // Если пишет админ (CREATIV), меняем стиль рамки и фона
+                if (d.u === "CREATIV") {
+                    m.style.borderLeft = "4px solid #ffca28";
+                    m.style.background = "rgba(255, 202, 40, 0.1)";
+                }
+
+                m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>${d.u}</div><div>${d.t}</div>`;
                 const msgs = document.getElementById('msgs');
                 msgs.appendChild(m);
                 msgs.scrollTop = msgs.scrollHeight;
             });
+
         }
     };
 </script>
