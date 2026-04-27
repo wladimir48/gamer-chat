@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
+    <!-- Подключаем Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -22,14 +23,14 @@
 </head>
 <body>
     <div class="servers">
-        <!-- Кнопка обновления чата -->
+        <!-- Кнопка обновления текстового чата -->
         <div class="icon" onclick="location.reload()" title="Текстовый чат">G</div>
-        <!-- Кнопка голосового чата (открывает в новой вкладке для стабильности) -->
+        <!-- Кнопка голоса (открывает Jitsi в новой вкладке для 100% работы на телефонах) -->
         <div class="icon" style="margin-top:10px; background:#23a559;" onclick="window.open('https://jit.si', '_blank')" title="Голосовой канал">🎤</div>
     </div>
 
     <div class="chat-area">
-        <div id="st" class="status">ЗАГРУЗКА СКРИПТОВ...</div>
+        <div id="st" class="status">ПОДКЛЮЧЕНИЕ...</div>
         <div id="msgs"></div>
         <div class="input-box"><input type="text" id="ui" placeholder="Напиши что-нибудь и Enter..."></div>
     </div>
@@ -45,6 +46,7 @@
         appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
+    // Звук уведомления
     const notifySound = new Audio('https://myinstants.com');
 
     window.onload = function() {
@@ -84,6 +86,7 @@
                     m.style.background = "rgba(255, 202, 40, 0.1)";
                 }
 
+                // Кнопка удаления видна тебе или админу
                 let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
 
                 m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
@@ -96,7 +99,7 @@
                 // Авто-прокрутка вниз
                 msgsContainer.scrollTop = msgsContainer.scrollHeight;
 
-                // Звук уведомления
+                // Звук (если пишет не сам пользователь)
                 if (d.u !== myName) {
                     notifySound.play().catch(() => {});
                 }
@@ -112,8 +115,6 @@
                     db.ref('global_chat').child(key).remove();
                 }
             };
-        } else {
-            document.getElementById('st').innerText = "ОШИБКА: Firebase заблокирован! Проверьте AdBlock.";
         }
     };
 </script>
