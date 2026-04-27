@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
+    <!-- Основные скрипты с защитой от блокировки -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -11,7 +12,7 @@
         .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .icon:hover { border-radius: 30%; background-color: #4752c4; }
         .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; position: relative; }
-        #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; scroll-behavior: smooth; }
         .msg { margin-bottom: 12px; background: rgba(79, 84, 92, 0.16); padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; position: relative; }
         .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
         .del-btn { color: #f23f43; cursor: pointer; font-size: 0.7em; margin-left: 10px; text-transform: uppercase; background: rgba(242, 63, 67, 0.1); padding: 2px 5px; border-radius: 3px; }
@@ -32,11 +33,11 @@
             <span>Голосовой канал</span>
             <button onclick="toggleVoice()" style="cursor:pointer; background:#f23f43; border:none; color:white; padding:5px 15px; border-radius:5px;">ВЫЙТИ</button>
         </div>
-        <iframe src="https://8x8.vc/vpaas-magic-cookie-3d5f9b8c0e6a4b1ba6848c9527f311c1/GamerChat_Room_48" allow="microphone; camera" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
+        <iframe src="https://8x8.vc" allow="microphone; camera; speaker-selection; autoplay; display-capture" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
     </div>
 
     <div class="chat-area">
-        <div id="st" class="status">ПОДКЛЮЧЕНИЕ К СЕРВЕРУ...</div>
+        <div id="st" class="status">ЗАГРУЗКА СКРИПТОВ...</div>
         <div id="msgs"></div>
         <div class="input-box"><input type="text" id="ui" placeholder="Напиши что-нибудь и Enter..."></div>
     </div>
@@ -57,65 +58,75 @@
         v.style.display = (v.style.display === 'none') ? 'block' : 'none';
     }
 
-    window.onload = function() {
-        if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(cfg);
-            const db = firebase.database();
+    const notifySound = new Audio('https://myinstants.com');
 
-            // ЗАПОМИНАЕМ НИК
-            let myName = localStorage.getItem('chat_nick');
-            if (!myName) {
-                myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
-                localStorage.setItem('chat_nick', myName);
+    window.onload = function() {
+        const statusEl = document.getElementById('st');
+        
+        if (typeof firebase === 'undefined') {
+            statusEl.innerText = "ОШИБКА: Firebase заблокирован! Отключите AdBlock или Антивирус.";
+            statusEl.style.color = "#f23f43";
+            return;
+        }
+
+        firebase.initializeApp(cfg);
+        const db = firebase.database();
+
+        let myName = localStorage.getItem('chat_nick');
+        if (!myName) {
+            myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
+            localStorage.setItem('chat_nick', myName);
+        }
+
+        db.ref('.info/connected').on('value', s => {
+            statusEl.innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
+            statusEl.style.color = s.val() ? "#23a559" : "#f23f43";
+        });
+
+        document.getElementById('ui').onkeypress = function(e) {
+            if (e.key === 'Enter' && this.value.trim() !== "") {
+                db.ref('global_chat').push().set({ u: myName, t: this.value });
+                this.value = "";
+            }
+        };
+
+        db.ref('global_chat').limitToLast(50).on('child_added', s => {
+            const d = s.val();
+            const key = s.key;
+            const m = document.createElement('div');
+            m.className = 'msg';
+            m.id = 'msg-' + key;
+
+            if (d.u === "CREATIV") {
+                m.style.borderLeft = "4px solid #ffca28";
+                m.style.background = "rgba(255, 202, 40, 0.1)";
             }
 
-            db.ref('.info/connected').on('value', s => {
-                document.getElementById('st').innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
-            });
+            let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
 
-            document.getElementById('ui').onkeypress = function(e) {
-                if (e.key === 'Enter' && this.value.trim() !== "") {
-                    db.ref('global_chat').push().set({ u: myName, t: this.value });
-                    this.value = "";
-                }
-            };
+            m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
+                <span>${d.u}</span>${delBtn}
+            </div><div>${d.t}</div>`;
+            
+            const msgs = document.getElementById('msgs');
+            msgs.appendChild(m);
+            msgs.scrollTop = msgs.scrollHeight;
 
-            // ЛОГИКА ОТОБРАЖЕНИЯ И УДАЛЕНИЯ
-            db.ref('global_chat').limitToLast(50).on('child_added', s => {
-                const d = s.val();
-                const key = s.key;
-                const m = document.createElement('div');
-                m.className = 'msg';
-                m.id = 'msg-' + key;
+            if (d.u !== myName) {
+                notifySound.play().catch(() => {});
+            }
+        });
 
-                if (d.u === "CREATIV") {
-                    m.style.borderLeft = "4px solid #ffca28";
-                    m.style.background = "rgba(255, 202, 40, 0.1)";
-                }
+        db.ref('global_chat').on('child_removed', s => {
+            const m = document.getElementById('msg-' + s.key);
+            if (m) m.remove();
+        });
 
-                // Кнопка удаления (видна тебе или админу CREATIV)
-                let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
-
-                m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
-                    <span>${d.u}</span>${delBtn}
-                </div><div>${d.t}</div>`;
-                
-                document.getElementById('msgs').appendChild(m);
-                document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-            });
-
-            // Слушаем удаление из базы
-            db.ref('global_chat').on('child_removed', s => {
-                const m = document.getElementById('msg-' + s.key);
-                if (m) m.remove();
-            });
-
-            window.deleteMsg = function(key) {
-                if(confirm("Удалить сообщение?")) {
-                    db.ref('global_chat').child(key).remove();
-                }
-            };
-        }
+        window.deleteMsg = function(key) {
+            if(confirm("Удалить сообщение?")) {
+                db.ref('global_chat').child(key).remove();
+            }
+        };
     };
 </script>
 </body>
