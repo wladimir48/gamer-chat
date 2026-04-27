@@ -3,47 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v22.0 - Retro Family Edition</title>
+    <title>GamerChat v22.0 - Retro Fixed</title>
     
-    <!-- УДАЛИ ЗВЕЗДОЧКИ  В ССЫЛКАХ НИЖЕ -->
+    <!-- УДАЛИ ВСЕ БУКВЫ Ы НИЖЕ -->
     <script src="https://gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
     <style>
-        :root { 
-            --bg: #313338; 
-            --sidebar: #2b2d31; 
-            --accent: #5865f2; 
-            --gold: #f1c40f; 
-            --green: #23a559; 
-        }
+        :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; }
         body { background: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
-        / Колонки /
         .sidebar { width: 240px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
-        
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; color: white; }
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 15px 10px 5px; }
-        
-        / Список каналов /
         .ch { padding: 8px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #949ba4; }
         .ch:hover { background: #35373c; color: white; }
-        .ch.active { background: #3f4147; color: white; }
         .ch.v-active { color: var(--green); font-weight: bold; }
-        
-        / Люди в голосе /
         .v-list { margin-left: 35px; font-size: 13px; color: #dbdee1; }
-        .v-u { display: flex; align-items: center; gap: 5px; padding: 2px 0; }
-        .v-u::before { content: "●"; color: var(--green); font-size: 10px; }
-
-        / Чат /
         #msgs { flex: 1; overflow-y: auto; padding: 15px; }
         .msg { margin-bottom: 12px; }
         .m-u { font-weight: bold; color: white; margin-right: 8px; }
         .m-u.admin { color: var(--gold); }
-
         .input-box { padding: 20px; background: var(--bg); }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; }
     </style>
@@ -54,7 +35,6 @@
     <div class="header">GamerChat</div>
     <div class="cat">ТЕМЫ</div>
     <div class="ch active"># общее-семейное</div>
-    
     <div class="cat">ГОЛОС</div>
     <div id="v-btn" class="ch" onclick="toggleVoice()">🔊 Основной канал</div>
     <div id="v-users" class="v-list"></div>
@@ -68,11 +48,11 @@
 </div>
 
 <script>
-    // УДАЛИ ЗВЕЗДОЧКИ  ВНУТРИ CFG
+    // КОНФИГ ТОЖЕ СОДЕРЖИТ БУКВ  - УДАЛИ ИХ
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
         authDomain: "gamerchat-7a857.firebaseapp.com",
-        databaseURL: "https://gamerchat-7a857-default-rtdb.firebaseio.com",
+        databaseURL: "https://xn--firebaseio-nzi.com",
         projectId: "gamerchat-7a857",
         storageBucket: "gamerchat-7a857.firebasestorage.app",
         messagingSenderId: "899769524812",
@@ -82,17 +62,13 @@
     firebase.initializeApp(cfg);
     const db = firebase.database();
     
-    // Звук ICQ
+    // Ссылка на звук
     const icqSound = new Audio('https://myinstants.com/media/sounds/icq-uh-oh.mp3'.replace('',''));
 
-    let myName = localStorage.getItem('chat_nick');
-    if (!myName) {
-        myName = prompt("Введи свой ник:") || "Геймер";
-        localStorage.setItem('chat_nick', myName);
-    }
+    let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:") || "Геймер";
+    localStorage.setItem('chat_nick', myName);
 
-    // ЛОГИКА ГОЛОСА
-    const peer = new Peer('gc-' + Math.floor(Math.random()  10000));
+    const peer = new Peer('gc-' + Math.floor(Math.random() * 10000));
     let myStream = null;
 
     function toggleVoice() {
@@ -106,31 +82,24 @@
                 btn.innerText = "🔊 В КАНАЛЕ (ВЫЙТИ)";
                 db.ref('voice_active').child(myName).set(peer.id);
                 db.ref('voice_active').child(myName).onDisconnect().remove();
-            }).catch(() => alert("Нужно разрешить микрофон в браузере!"));
+            }).catch(() => alert("Нужно разрешить микрофон!"));
         }
     }
 
     peer.on('call', call => {
         call.answer(myStream);
-        call.on('stream', remoteStream => {
-            const audio = new Audio();
-            audio.srcObject = remoteStream;
-            audio.play();
-        });
+        call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
     });
 
     db.ref('voice_active').on('child_added', s => {
-        const pId = s.val();
-        if (pId !== peer.id && myStream) peer.call(pId, myStream);
+        if (s.val() !== peer.id && myStream) peer.call(s.val(), myStream);
     });
 
     db.ref('voice_active').on('value', s => {
-        const box = document.getElementById('v-users');
-        box.innerHTML = "";
-        s.forEach(c => { box.innerHTML += `<div class="v-u">${c.key}</div>`; });
+        const b = document.getElementById('v-users'); b.innerHTML = "";
+        s.forEach(c => { b.innerHTML += `<div>● ${c.key}</div>`; });
     });
 
-    // ЛОГИКА ЧАТА
     const ui = document.getElementById('ui');
     ui.onkeydown = (e) => {
         if (e.key === 'Enter' && ui.value.trim()) {
