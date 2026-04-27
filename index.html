@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
-    <!-- Основные скрипты с защитой от блокировки -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -19,22 +18,14 @@
         .input-box { padding: 20px; }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; box-sizing: border-box; }
         .status { text-align: center; color: #23a559; padding: 5px; font-size: 0.8em; font-weight: bold; background: #2b2d31; }
-        #voice-wrap { display:none; position:fixed; top:0; left:72px; right:0; bottom:0; background:#1e1f22; z-index:1000; }
     </style>
 </head>
 <body>
     <div class="servers">
-        <div class="icon" onclick="location.reload()">G</div>
-        <div class="icon" style="margin-top:10px; background:#23a559;" onclick="toggleVoice()">🎤</div>
-    </div>
-
-    <div id="voice-wrap">
+        <!-- Кнопка обновления чата -->
+        <div class="icon" onclick="location.reload()" title="Текстовый чат">G</div>
+        <!-- Кнопка голосового чата (открывает в новой вкладке для стабильности) -->
         <div class="icon" style="margin-top:10px; background:#23a559;" onclick="window.open('https://jit.si', '_blank')" title="Голосовой канал">🎤</div>
-
-            <span>Голосовой канал</span>
-            <button onclick="toggleVoice()" style="cursor:pointer; background:#f23f43; border:none; color:white; padding:5px 15px; border-radius:5px;">ВЫЙТИ</button>
-        </div>
-        <iframe src="https://8x8.vc" allow="microphone; camera; speaker-selection; autoplay; display-capture" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
     </div>
 
     <div class="chat-area">
@@ -54,80 +45,76 @@
         appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
-    function toggleVoice() {
-        const v = document.getElementById('voice-wrap');
-        v.style.display = (v.style.display === 'none') ? 'block' : 'none';
-    }
-
     const notifySound = new Audio('https://myinstants.com');
 
     window.onload = function() {
-        const statusEl = document.getElementById('st');
-        
-        if (typeof firebase === 'undefined') {
-            statusEl.innerText = "ОШИБКА: Firebase заблокирован! Отключите AdBlock или Антивирус.";
-            statusEl.style.color = "#f23f43";
-            return;
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(cfg);
+            const db = firebase.database();
+
+            // ЗАПОМИНАЕМ НИК
+            let myName = localStorage.getItem('chat_nick');
+            if (!myName) {
+                myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
+                localStorage.setItem('chat_nick', myName);
+            }
+
+            db.ref('.info/connected').on('value', s => {
+                const statusEl = document.getElementById('st');
+                statusEl.innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
+                statusEl.style.color = s.val() ? "#23a559" : "#f23f43";
+            });
+
+            document.getElementById('ui').onkeypress = function(e) {
+                if (e.key === 'Enter' && this.value.trim() !== "") {
+                    db.ref('global_chat').push().set({ u: myName, t: this.value });
+                    this.value = "";
+                }
+            };
+
+            db.ref('global_chat').limitToLast(50).on('child_added', s => {
+                const d = s.val();
+                const key = s.key;
+                const m = document.createElement('div');
+                m.className = 'msg';
+                m.id = 'msg-' + key;
+
+                if (d.u === "CREATIV") {
+                    m.style.borderLeft = "4px solid #ffca28";
+                    m.style.background = "rgba(255, 202, 40, 0.1)";
+                }
+
+                let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
+
+                m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
+                    <span>${d.u}</span>${delBtn}
+                </div><div>${d.t}</div>`;
+                
+                const msgsContainer = document.getElementById('msgs');
+                msgsContainer.appendChild(m);
+
+                // Авто-прокрутка вниз
+                msgsContainer.scrollTop = msgsContainer.scrollHeight;
+
+                // Звук уведомления
+                if (d.u !== myName) {
+                    notifySound.play().catch(() => {});
+                }
+            });
+
+            db.ref('global_chat').on('child_removed', s => {
+                const m = document.getElementById('msg-' + s.key);
+                if (m) m.remove();
+            });
+
+            window.deleteMsg = function(key) {
+                if(confirm("Удалить сообщение?")) {
+                    db.ref('global_chat').child(key).remove();
+                }
+            };
+        } else {
+            document.getElementById('st').innerText = "ОШИБКА: Firebase заблокирован! Проверьте AdBlock.";
         }
-
-        firebase.initializeApp(cfg);
-        const db = firebase.database();
-
-        let myName = localStorage.getItem('chat_nick');
-        if (!myName) {
-            myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
-            localStorage.setItem('chat_nick', myName);
-        }
-
-        db.ref('.info/connected').on('value', s => {
-            statusEl.innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
-            statusEl.style.color = s.val() ? "#23a559" : "#f23f43";
-        });
-
-        document.getElementById('ui').onkeypress = function(e) {
-            if (e.key === 'Enter' && this.value.trim() !== "") {
-                db.ref('global_chat').push().set({ u: myName, t: this.value });
-                this.value = "";
-            }
-        };
-
-        db.ref('global_chat').limitToLast(50).on('child_added', s => {
-            const d = s.val();
-            const key = s.key;
-            const m = document.createElement('div');
-            m.className = 'msg';
-            m.id = 'msg-' + key;
-
-            if (d.u === "CREATIV") {
-                m.style.borderLeft = "4px solid #ffca28";
-                m.style.background = "rgba(255, 202, 40, 0.1)";
-            }
-
-            let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
-
-            m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
-                <span>${d.u}</span>${delBtn}
-            </div><div>${d.t}</div>`;
-            
-            const msgs = document.getElementById('msgs');
-            msgs.appendChild(m);
-            msgs.scrollTop = msgs.scrollHeight;
-
-            if (d.u !== myName) {
-                notifySound.play().catch(() => {});
-            }
-        });
-
-        db.ref('global_chat').on('child_removed', s => {
-            const m = document.getElementById('msg-' + s.key);
-            if (m) m.remove();
-        });
-
-        window.deleteMsg = function(key) {
-            if(confirm("Удалить сообщение?")) {
-                db.ref('global_chat').child(key).remove();
-            }
-        };
     };
 </script>
 </body>
