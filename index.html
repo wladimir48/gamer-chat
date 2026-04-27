@@ -3,60 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat - v4.0 Embedded Voice</title>
+    <title>GamerChat - Version 5.0</title>
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
-        body { background-color: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; z-index: 10; }
-        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 8px; }
+        body { background-color: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* Боковая панель серверов */
+        .servers { width: 72px; background-color: #1e1f22; display: flex; flex-direction: column; align-items: center; padding-top: 12px; border-right: 1px solid #2b2d31; z-index: 100; }
+        .icon { width: 48px; height: 48px; background-color: #5865f2; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: white; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 12px; font-size: 20px; }
         .icon:hover { border-radius: 30%; background-color: #4752c4; }
         .icon.voice { background-color: #23a559; }
 
+        /* Область чата */
         .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; position: relative; }
-        #st { text-align: center; color: #23a559; padding: 5px; font-size: 0.75rem; font-weight: bold; background: #2b2d31; }
+        #st { text-align: center; color: #23a559; padding: 6px; font-size: 0.75rem; font-weight: bold; background: #2b2d31; letter-spacing: 0.5px; }
+        
         #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        
-        .msg { margin-bottom: 16px; background: rgba(79, 84, 92, 0.16); padding: 12px; border-radius: 8px; border-left: 4px solid #5865f2; }
-        .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; }
-        .author small { color: #949ba4; font-size: 0.7em; margin-left: 8px; font-weight: normal; }
-        .del-btn { color: #f23f43; cursor: pointer; font-weight: bold; }
-        
-        .chat-img { max-width: 100%; max-height: 250px; border-radius: 8px; margin-top: 8px; display: block; }
+        #msgs::-webkit-scrollbar { width: 8px; }
+        #msgs::-webkit-scrollbar-thumb { background: #1a1b1e; border-radius: 4px; }
 
-        .input-box { padding: 20px; }
-        input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 14px; color: white; outline: none; box-sizing: border-box; }
+        /* Сообщения */
+        .msg { margin-bottom: 16px; background: rgba(79, 84, 92, 0.16); padding: 12px; border-radius: 8px; border-left: 4px solid #5865f2; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .author small { color: #949ba4; font-size: 0.75em; margin-left: 8px; font-weight: normal; }
+        
+        .del-btn { color: #f23f43; cursor: pointer; font-size: 1.2em; opacity: 0.7; transition: 0.2s; }
+        .del-btn:hover { opacity: 1; transform: scale(1.2); }
 
-        /* Окно голосового чата внутри страницы */
+        /* Картинки */
+        .chat-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-top: 8px; display: block; border: 1px solid #444; }
+
+        /* Ввод сообщения */
+        .input-box { padding: 20px; background: #313338; }
+        input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 14px; color: white; outline: none; box-sizing: border-box; font-size: 1rem; }
+
+        /* ВСТРОЕННЫЙ ГОЛОСОВОЙ ЧАТ */
         #voice-window {
-            position: absolute; top: 40px; right: 20px; width: 350px; height: 500px;
+            position: absolute; top: 50px; right: 20px; width: 400px; height: 550px;
             background: #1e1f22; border: 2px solid #23a559; border-radius: 12px;
-            display: none; flex-direction: column; overflow: hidden; z-index: 100;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none; flex-direction: column; overflow: hidden; z-index: 99;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
         #voice-window iframe { border: none; width: 100%; height: 100%; }
-        .close-voice { background: #f23f43; color: white; text-align: center; cursor: pointer; padding: 5px; font-weight: bold; }
+        .voice-header { background: #23a559; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        .close-btn { cursor: pointer; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div class="servers">
-        <div class="icon" onclick="location.reload()">G</div>
-        <div class="icon voice" onclick="toggleVoice()" title="Голосовой канал">🎤</div>
+        <div class="icon" onclick="location.reload()" title="Обновить чат">G</div>
+        <div class="icon voice" onclick="toggleVoice()" title="Голосовая связь">🎤</div>
     </div>
 
     <div class="chat-area">
         <div id="st">ПОДКЛЮЧЕНИЕ...</div>
         
-        <!-- Встроенное окно голоса -->
+        <!-- Окно голосового чата (скрыто по умолчанию) -->
         <div id="voice-window">
-            <div class="close-voice" onclick="toggleVoice()">ЗАКРЫТЬ ГОЛОС ×</div>
-            <iframe id="v-frame" allow="microphone; camera"></iframe>
+            <div class="voice-header">
+                <span>Голосовой канал</span>
+                <span class="close-btn" onclick="toggleVoice()">ЗАКРЫТЬ ×</span>
+            </div>
+            <!-- allow атрибуты очень важны для работы микрофона -->
+            <iframe id="v-frame" allow="microphone; camera; display-capture; autoplay"></iframe>
         </div>
 
         <div id="msgs"></div>
         <div class="input-box">
-            <input type="text" id="ui" placeholder="Напиши что-нибудь или кинь ссылку на картинку...">
+            <input type="text" id="ui" placeholder="Напиши что-нибудь или вставь ссылку на .jpg/.png..." autocomplete="off">
         </div>
     </div>
 
@@ -73,40 +92,48 @@
 
     const notifySound = new Audio('https://githubusercontent.com');
 
-    // Функция переключения встроенного голоса
+    // Функция открытия/закрытия голоса
     function toggleVoice() {
         const win = document.getElementById('voice-window');
         const frame = document.getElementById('v-frame');
+        
         if (win.style.display === 'flex') {
             win.style.display = 'none';
-            frame.src = ""; // Остановить голос при закрытии
+            frame.src = ""; // Отключаемся от звонка
         } else {
             win.style.display = 'flex';
-            // Используем прямой путь к комнате
+            // Используем meet.jit.si (он более надежный)
+            // Добавляем случайную комнату, чтобы никто чужой не зашел
             frame.src = "https://jit.si";
         }
     }
 
     firebase.initializeApp(cfg);
     const db = firebase.database();
-    let myName = localStorage.getItem('chat_nick') || prompt("Твой ник:", "Геймер") || "Аноним";
+
+    let myName = localStorage.getItem('chat_nick') || prompt("Введи свой никнейм:", "Геймер") || "Аноним";
     localStorage.setItem('chat_nick', myName);
 
+    // Статус сети
     db.ref('.info/connected').on('value', s => {
-        document.getElementById('st').innerText = s.val() ? "В СЕТИ" : "ПОДКЛЮЧЕНИЕ...";
-        document.getElementById('st').style.color = s.val() ? "#23a559" : "#f23f43";
+        const statusEl = document.getElementById('st');
+        statusEl.innerText = s.val() ? "В СЕТИ" : "ПОИСК СЕРВЕРА...";
+        statusEl.style.color = s.val() ? "#23a559" : "#f23f43";
     });
 
+    // Отправка
     document.getElementById('ui').onkeypress = function(e) {
         if (e.key === 'Enter' && this.value.trim() !== "") {
             db.ref('global_chat').push().set({ 
-                u: myName, t: this.value,
+                u: myName, 
+                t: this.value,
                 time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
             });
             this.value = "";
         }
     };
 
+    // Прием сообщений
     db.ref('global_chat').limitToLast(50).on('child_added', s => {
         const d = s.val();
         const key = s.key;
@@ -114,27 +141,39 @@
         m.className = 'msg';
         m.id = 'msg-' + key;
 
-        let content = d.t;
+        // Поиск картинок
+        let messageText = d.t;
         const imgRegex = /(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|webp|jpeg)/i;
         if (imgRegex.test(d.t)) {
-            content = `${d.t}<br><img src="${d.t}" class="chat-img" onerror="this.style.display='none'">`;
+            messageText = `${d.t}<br><img src="${d.t}" class="chat-img" onerror="this.style.display='none'">`;
         }
 
         let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">×</span>` : "";
 
-        m.innerHTML = `<div class="author"><span>${d.u} <small>${d.time || ''}</small></span>${delBtn}</div><div>${content}</div>`;
+        m.innerHTML = `
+            <div class="author">
+                <span>${d.u} <small>${d.time || ''}</small></span>
+                ${delBtn}
+            </div>
+            <div>${messageText}</div>`;
+        
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        if (d.u !== myName) notifySound.play().catch(() => {});
+
+        if (d.u !== myName) {
+            notifySound.play().catch(() => {});
+        }
     });
 
-    window.deleteMsg = function(key) {
-        if(confirm("Удалить?")) db.ref('global_chat').child(key).remove();
-    };
+    // Удаление
     db.ref('global_chat').on('child_removed', s => {
         const el = document.getElementById('msg-' + s.key);
         if (el) el.remove();
     });
+
+    window.deleteMsg = function(key) {
+        if(confirm("Удалить сообщение?")) db.ref('global_chat').child(key).remove();
+    };
 </script>
 </body>
 </html>
