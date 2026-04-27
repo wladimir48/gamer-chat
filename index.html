@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v36.0 - Stable Voice</title>
+    <title>GamerChat v37.0 - Full Voice Control</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -19,12 +19,13 @@
         .speaking { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.1); background-color: var(--green) !important; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .msg { margin-bottom: 12px; display: flex; gap: 12px; }
-        .m-u { font-weight: bold; color: white; }
         .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
         .e-item { cursor: pointer; font-size: 22px; }
-        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); }
-        .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
+        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 10px; }
+        .ptt-btn { background: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
         .ptt-btn:active { background: var(--green); }
+        .leave-btn { background: var(--red); color: white; border: none; padding: 8px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; opacity: 0.8; }
+        .leave-btn:hover { opacity: 1; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
@@ -37,34 +38,37 @@
 <div id="modal">
     <div class="m-content">
         <h3 style="margin:0">Настройки</h3>
-        <label style="font-size:12px">Ник:</label>
         <input type="text" id="set-nick">
-        <label style="font-size:12px">Цвет:</label>
         <div class="color-p" id="color-picker"></div>
-        <label style="font-size:12px">Микрофон:</label>
+        <label style="font-size:11px">Микрофон:</label>
         <select id="mic-list"></select>
-        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">OK</button>
+        <label style="font-size:11px">Динамики:</label>
+        <select id="speaker-list"></select>
+        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Применить</button>
     </div>
 </div>
+
 <div class="sidebar">
     <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer; font-size:18px;">&#9881;</span></div>
     <div class="cat">Текстовые каналы</div>
     <div style="padding: 8px 15px; color:#949ba4">&#35; общее-семейное</div>
     <div class="cat">Голосовая рация</div>
-    <div id="net-st" style="padding: 8px 15px; color:var(--green); font-size: 11px; font-weight:bold">● СЕТЬ: ОНЛАЙН</div>
+    <div id="net-st" style="padding: 8px 15px; color:var(--green); font-size: 10px; font-weight:bold">● СЕТЬ: ОНЛАЙН</div>
     <div id="v-users" class="v-list"></div>
 </div>
+
 <div class="main">
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
     <div class="radio-box">
-        <div id="v-info" style="font-size:10px; text-align:center; margin-bottom:8px; font-weight:bold; color:#949ba4">РАЦИЯ ГОТОВА</div>
         <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ И ГОВОРИ &#127897;</button>
+        <button class="leave-btn" onclick="disconnectVoice()">ОТКЛЮЧИТЬСЯ ОТ ГОЛОСА</button>
     </div>
     <div style="padding:15px 20px; background: var(--bg);">
         <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Сообщение..." autocomplete="off">
     </div>
 </div>
+
 <script>
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
@@ -83,6 +87,7 @@
     let myName = localStorage.getItem('chat_nick') || "Геймер";
     let myColor = localStorage.getItem('chat_color') || "#5865f2";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
+    let selectedSpk = localStorage.getItem('chat_spk') || 'default';
     const colorOptions = ["#5865f2", "#ed4245", "#3ba55d", "#faa81a", "#eb459e", "#9b59b6", "#1abc9c", "#f1c40f"];
 
     let myStream = null;
@@ -96,15 +101,13 @@
             myRef.set({ speaking: false, color: myColor });
             myRef.onDisconnect().remove();
             listenForSignals();
-        } catch (e) { alert("Включи микрофон!"); }
+        } catch (e) { console.error(e); }
     }
 
     const talk = (on) => {
         if (!myStream) return;
         myStream.getAudioTracks().forEach(t => t.enabled = on);
         db.ref('voice_v2').child(myName).update({ speaking: on });
-        document.getElementById('v-info').innerText = on ? "В ЭФИРЕ!" : "РАЦИЯ ГОТОВА";
-        document.getElementById('v-info').style.color = on ? "var(--green)" : "#949ba4";
     };
 
     const ptt = document.getElementById('ptt-trigger');
@@ -112,6 +115,14 @@
     ptt.addEventListener('mouseup', () => talk(false));
     ptt.addEventListener('touchstart', (e) => { e.preventDefault(); talk(true); });
     ptt.addEventListener('touchend', () => talk(false));
+
+    function disconnectVoice() {
+        if (myStream) myStream.getTracks().forEach(t => t.stop());
+        db.ref('voice_v2').child(myName).remove();
+        Object.values(connections).forEach(pc => pc.close());
+        connections = {};
+        location.reload();
+    }
 
     function listenForSignals() {
         db.ref('voice_v2').on('value', s => {
@@ -127,7 +138,6 @@
             const d = s.val(); const from = d.from;
             if (!connections[from]) setupWebRTC(from);
             const pc = connections[from];
-            
             try {
                 if (d.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
@@ -137,12 +147,12 @@
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice' && d.ice) {
-                    // ФИКС ОШИБКИ ИЗ КОНСОЛИ: проверяем наличие нужных полей
-                    if (d.ice.candidate !== undefined) {
+                    // ФИКС ОШИБКИ: Проверяем sdpMid И sdpMLineIndex
+                    if (d.ice.sdpMid !== null || d.ice.sdpMLineIndex !== null) {
                         await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                     }
                 }
-            } catch (e) { console.error("WebRTC Error:", e); }
+            } catch (e) { console.log("Signal skipped"); }
             s.ref.remove();
         });
     }
@@ -151,9 +161,17 @@
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        pc.onicecandidate = e => { if (e.candidate) sendSignal(target, { type: 'ice', ice: e.candidate }); };
-        pc.ontrack = e => { const a = new Audio(); a.srcObject = e.streams[0]; a.play().catch(()=>{}); };
-        
+        pc.onicecandidate = e => {
+            // ФИКС ОШИБКИ: Не отправляем пустые кандидаты
+            if (e.candidate && (e.candidate.sdpMid !== null || e.candidate.sdpMLineIndex !== null)) {
+                sendSignal(target, { type: 'ice', ice: e.candidate });
+            }
+        };
+        pc.ontrack = e => {
+            const a = new Audio(); a.srcObject = e.streams[0];
+            if (a.setSinkId) a.setSinkId(selectedSpk);
+            a.play().catch(()=>{});
+        };
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
                 const off = await pc.createOffer();
@@ -177,9 +195,13 @@
             cp.appendChild(d);
         });
         navigator.mediaDevices.enumerateDevices().then(devs => {
-            const mS = document.getElementById('mic-list'); mS.innerHTML = "";
-            devs.filter(d => d.kind === 'audioinput').forEach(d => {
-                mS.innerHTML += `<option value="${d.deviceId}" ${d.deviceId===selectedMic?'selected':''}>${d.label || 'Микрофон'}</option>`;
+            const mS = document.getElementById('mic-list');
+            const sS = document.getElementById('speaker-list');
+            mS.innerHTML = ""; sS.innerHTML = "";
+            devs.forEach(d => {
+                const opt = `<option value="${d.deviceId}" ${d.deviceId===(d.kind==='audioinput'?selectedMic:selectedSpk)?'selected':''}>${d.label || 'Устройство'}</option>`;
+                if (d.kind === 'audioinput') mS.innerHTML += opt;
+                if (d.kind === 'audiooutput') sS.innerHTML += opt;
             });
         });
     };
@@ -188,6 +210,7 @@
         localStorage.setItem('chat_nick', document.getElementById('set-nick').value || myName);
         localStorage.setItem('chat_color', myColor);
         localStorage.setItem('chat_mic', document.getElementById('mic-list').value);
+        localStorage.setItem('chat_spk', document.getElementById('speaker-list').value);
         location.reload();
     };
 
@@ -198,10 +221,9 @@
         document.getElementById('eb').appendChild(s);
     });
 
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if (e.key === 'Enter' && ui.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: ui.value, color: myColor }); ui.value = "";
+    document.getElementById('ui').onkeydown = (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            db.ref('global_chat').push().set({ u: myName, t: e.target.value, color: myColor }); e.target.value = "";
         }
     };
 
