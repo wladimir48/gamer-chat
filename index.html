@@ -3,49 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v24.0 - Emojis & Admin</title>
+    <title>GamerChat v26.0 - Pro Discord Style</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; }
-        body { background: #1e1f22; color: #dbdee1; font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .sidebar { width: 240px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
-        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; color: white; }
-        .ch { padding: 8px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: #949ba4; }
-        .ch.v-active { color: var(--green); font-weight: bold; }
-        .v-list { margin-left: 35px; font-size: 13px; color: #dbdee1; }
-        #msgs { flex: 1; overflow-y: auto; padding: 15px; }
-        .msg { margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+        .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; color: white; font-size: 16px; }
+        
+        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 10px 5px 15px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* КАНАЛ КАК НА СКРИНШОТЕ */
+        .ch-box { margin: 2px 8px; border-radius: 4px; transition: 0.2s; cursor: pointer; }
+        .ch-box:hover { background: #35373c; }
+        .ch-box.v-active { background: #3f4147; }
+        
+        .ch-row { padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; color: #949ba4; }
+        .v-active .ch-row { color: var(--green); }
+        .ch-title { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+        .timer { font-size: 12px; font-family: monospace; opacity: 0.8; }
+
+        /* СПИСОК ЮЗЕРОВ ПОД КАНАЛОМ */
+        .v-list { padding: 0 0 8px 42px; display: flex; flex-direction: column; gap: 4px; }
+        .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #dbdee1; padding: 4px 0; }
+        .v-u-ava { width: 24px; height: 24px; background: #ed4245; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .v-u-ava img { width: 14px; filter: brightness(0) invert(1); } /* Лого дискорда */
+
+        /* Чат */
+        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; }
+        .msg { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
         .m-u { font-weight: bold; color: white; margin-right: 8px; }
         .m-u.admin { color: var(--gold); }
-        .del-btn { color: #f23f43; cursor: pointer; font-size: 11px; opacity: 0.4; text-transform: uppercase; }
-        .del-btn:hover { opacity: 1; }
-        
-        /* Смайлики */
-        .emoji-bar { padding: 5px 15px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; }
-        .emoji-item { cursor: pointer; font-size: 20px; transition: 0.2s; }
-        .emoji-item:hover { transform: scale(1.3); }
+        .del-btn { color: #f23f43; cursor: pointer; font-size: 11px; opacity: 0.4; padding: 5px; }
+        .del-btn:hover { opacity: 1; text-decoration: underline; }
 
+        /* Ввод */
+        .emoji-bar { padding: 5px 15px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; overflow-x: auto; border-top: 1px solid rgba(255,255,255,0.05); }
+        .emoji-item { cursor: pointer; font-size: 20px; }
         .input-box { padding: 15px 20px 20px; background: var(--bg); }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; box-sizing: border-box; }
     </style>
 </head>
 <body>
+
 <div class="sidebar">
     <div class="header">GamerChat</div>
-    <div class="ch active"># общее-семейное</div>
-    <div style="padding: 10px; font-size: 11px; font-weight: bold; color: #949ba4;">ГОЛОС</div>
-    <div id="v-btn" class="ch" onclick="toggleVoice()">🔊 Основной канал</div>
-    <div id="v-users" class="v-list"></div>
+    
+    <div class="cat">Текстовые каналы</div>
+    <div class="ch-row" style="cursor:pointer">
+        <div class="ch-title"><span>#</span> общее-семейное</div>
+    </div>
+    
+    <div class="cat">Голосовые каналы</div>
+    <!-- ГОЛОСОВОЙ БЛОК -->
+    <div id="voice-block" class="ch-box" onclick="toggleVoice()">
+        <div class="ch-row">
+            <div class="ch-title">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                Голосовая связь
+            </div>
+            <div id="v-timer" class="timer"></div>
+        </div>
+        <div id="v-users" class="v-list"></div>
+    </div>
 </div>
+
 <div class="main">
     <div id="msgs"></div>
-    
-    <!-- Панель смайликов -->
     <div class="emoji-bar" id="eb"></div>
-    
     <div class="input-box">
         <input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off">
     </div>
@@ -66,55 +95,75 @@
     const db = firebase.database();
     const icqSound = new Audio('https://www.myinstants.com/media/sounds/icq-uh-oh.mp3');
 
-    let myName = localStorage.getItem('chat_nick') || prompt("Введи ник:") || "Геймер";
+    let myName = localStorage.getItem('chat_nick') || prompt("Твой ник:") || "Геймер";
     localStorage.setItem('chat_nick', myName);
 
-    // ГОЛОС
-    const peer = new Peer('gc-' + Math.floor(Math.random() * 10000), {
+    // --- ГОЛОСОВОЙ ДВИЖОК ---
+    const myPeerId = 'gc-' + myName.replace(/\s+/g, '-') + '-' + Math.floor(Math.random() * 1000);
+    const peer = new Peer(myPeerId, {
         config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]}
     });
+    
     let myStream = null;
+    let timerInterval = null;
 
     function toggleVoice() {
-        const btn = document.getElementById('v-btn');
-        if (myStream) { location.reload(); } 
-        else {
+        const block = document.getElementById('voice-block');
+        if (myStream) {
+            location.reload(); 
+        } else {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
                 myStream = stream;
-                btn.classList.add('v-active');
-                btn.innerText = "🔊 В КАНАЛЕ";
-                db.ref('voice_active').child(myName).set(peer.id);
+                block.classList.add('v-active');
+                db.ref('voice_active').child(myName).set(myPeerId);
                 db.ref('voice_active').child(myName).onDisconnect().remove();
+                startTimer();
             }).catch(() => alert("Нужен микрофон!"));
         }
     }
 
+    function startTimer() {
+        let sec = 0;
+        timerInterval = setInterval(() => {
+            sec++;
+            let h = Math.floor(sec/3600);
+            let m = Math.floor((sec%3600)/60);
+            let s = sec%60;
+            document.getElementById('v-timer').innerText = `${h}:${m<10?'0':''}${m}:${s<10?'0':''}${s}`;
+        }, 1000);
+    }
+
     peer.on('call', call => {
         call.answer(myStream);
-        call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
+        call.on('stream', s => { 
+            const a = new Audio(); a.srcObject = s; a.play().catch(() => {}); 
+        });
     });
 
     db.ref('voice_active').on('child_added', s => {
-        if (s.val() !== peer.id && myStream) peer.call(s.val(), myStream);
+        if (s.val() !== myPeerId && myStream) peer.call(s.val(), myStream);
     });
 
     db.ref('voice_active').on('value', s => {
         const b = document.getElementById('v-users'); b.innerHTML = "";
-        s.forEach(c => { b.innerHTML += `<div>● ${c.key}</div>`; });
+        s.forEach(c => { 
+            b.innerHTML += `
+                <div class="v-u">
+                    <div class="v-u-ava"><img src="https://cdn.prod.website-files.com/6257adef93867e3d0394e0ff/636e0a6a49f9a7b5753088ad_icon_clyde_blurple_RGB.svg"></div>
+                    ${c.key}
+                </div>`; 
+        });
     });
 
-    // СМАЙЛИКИ
+    // --- СМАЙЛЫ ---
     const emojis = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
-    const eBar = document.getElementById('eb');
     emojis.forEach(e => {
-        const span = document.createElement('span');
-        span.className = 'emoji-item';
-        span.innerText = e;
-        span.onclick = () => { document.getElementById('ui').value += e; document.getElementById('ui').focus(); };
-        eBar.appendChild(span);
+        const s = document.createElement('span'); s.className = 'emoji-item'; s.innerText = e;
+        s.onclick = () => { ui.value += e; ui.focus(); };
+        document.getElementById('eb').appendChild(s);
     });
 
-    // ЧАТ
+    // --- ЧАТ ---
     const ui = document.getElementById('ui');
     ui.onkeydown = (e) => {
         if (e.key === 'Enter' && ui.value.trim()) {
@@ -125,12 +174,9 @@
 
     db.ref('global_chat').on('child_added', s => {
         const d = s.val(); const key = s.key;
-        const m = document.createElement('div');
-        m.className = 'msg';
-        m.id = 'msg-' + key;
+        const m = document.createElement('div'); m.className = 'msg'; m.id = 'msg-' + key;
         const isAdm = d.u === 'CREATIV' ? 'admin' : '';
         const delBtn = (myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">удалить</span>` : '';
-        
         m.innerHTML = `<div><span class="m-u ${isAdm}">${d.u}:</span><span>${d.t}</span></div>${delBtn}`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
@@ -138,11 +184,10 @@
     });
 
     db.ref('global_chat').on('child_removed', s => {
-        const el = document.getElementById('msg-' + s.key);
-        if (el) el.remove();
+        const el = document.getElementById('msg-' + s.key); if (el) el.remove();
     });
 
-    window.deleteMsg = (key) => { if(confirm("Удалить сообщение?")) db.ref('global_chat').child(key).remove(); };
+    window.deleteMsg = (key) => { if(confirm("Удалить?")) db.ref('global_chat').child(key).remove(); };
 </script>
 </body>
 </html>
