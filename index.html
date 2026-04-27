@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v27.0 - Settings & Avatars</title>
+    <title>GamerChat v28.0 - Voice Glow</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
@@ -11,93 +11,68 @@
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
         body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* Панели */
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #1a1b1e; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
         
-        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 10px 5px 15px; text-transform: uppercase; }
-        .ch-box { margin: 2px 8px; border-radius: 4px; cursor: pointer; }
-        .ch-row { padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; color: #949ba4; }
-        .v-active .ch-row { color: var(--green); }
+        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
+        .ch-row { padding: 8px 15px; color: #949ba4; display: flex; align-items: center; gap: 8px; }
+        .v-active { color: var(--green) !important; font-weight: bold; }
         
-        /* Список в голосе */
-        .v-list { padding: 0 0 8px 42px; display: flex; flex-direction: column; gap: 6px; }
-        .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-        .ava { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold; flex-shrink: 0; }
+        /* ГОВОРЯЩАЯ ИКОНКА (GLOW) */
+        .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 4px 15px 4px 40px; transition: 0.2s; }
+        .ava { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.3s; }
+        .speaking { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); transform: scale(1.1); }
 
-        /* Чат */
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .msg { margin-bottom: 12px; display: flex; gap: 12px; }
-        .m-body { display: flex; flex-direction: column; flex: 1; }
-        .m-line1 { display: flex; align-items: center; gap: 8px; }
         .m-u { font-weight: bold; color: white; }
         .m-u.admin { color: var(--gold); }
-        .del-btn { color: var(--red); cursor: pointer; font-size: 10px; opacity: 0.3; }
-        .del-btn:hover { opacity: 1; }
 
-        /* Настройки (Модальное окно) */
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .m-content { background: var(--bg); padding: 25px; border-radius: 8px; width: 350px; display: flex; flex-direction: column; gap: 15px; }
-        .m-content h2 { margin: 0; font-size: 18px; }
-        select, input[type="text"] { background: #1e1f22; border: 1px solid #111; color: white; padding: 8px; border-radius: 4px; }
-        .color-p { display: flex; gap: 5px; flex-wrap: wrap; }
-        .color-dot { width: 25px; height: 25px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-        .color-dot.selected { border-color: white; }
+        /* Настройки */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
+        .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 380px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #444; }
+        select, input { background: #1e1f22; border: 1px solid #111; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
+        .color-p { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+        .color-dot { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .color-dot.selected { border-color: white; transform: scale(1.1); }
+        .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 5px; cursor: pointer; font-weight: bold; }
 
-        /* Кнопки */
-        .btn { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn:hover { background: #4752c4; }
-        .btn-close { background: #4f545c; }
-
-        .emoji-bar { padding: 5px 15px; display: flex; gap: 8px; overflow-x: auto; background: rgba(0,0,0,0.1); }
-        .e-item { cursor: pointer; font-size: 20px; }
-        .input-box { padding: 15px 20px 20px; }
-        #ui { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; box-sizing: border-box; }
+        .emoji-bar { padding: 8px 15px; display: flex; gap: 10px; overflow-x: auto; background: rgba(0,0,0,0.1); }
+        .input-box { padding: 15px 20px; }
     </style>
 </head>
 <body>
 
 <div id="modal">
     <div class="m-content">
-        <h2>Настройки профиля</h2>
-        <label>Твой ник:</label>
+        <h2 style="margin:0">Настройки устройства</h2>
+        <label>Никнейм:</label>
         <input type="text" id="set-nick">
-        
-        <label>Цвет аватарки:</label>
         <div class="color-p" id="color-picker"></div>
-        
-        <label>Микрофон:</label>
+        <label>Микрофон (Вход):</label>
         <select id="mic-list"></select>
-        
-        <button class="btn" onclick="saveSettings()">Сохранить и выйти</button>
+        <label>Динамики (Выход):</label>
+        <select id="speaker-list"></select>
+        <button class="btn" onclick="saveSettings()">Применить</button>
     </div>
 </div>
 
 <div class="sidebar">
-    <div class="header">
-        GamerChat
-        <span style="cursor:pointer" onclick="openSettings()">⚙️</span>
-    </div>
+    <div class="header">GamerChat <span style="cursor:pointer" onclick="openSettings()">⚙️</span></div>
     <div class="cat">Текстовые каналы</div>
-    <div class="ch-row"># общее-семейное</div>
-    
+    <div class="ch-row"><span>#</span> общее-семейное</div>
     <div class="cat">Голосовые каналы</div>
-    <div id="v-block" class="ch-box" onclick="toggleVoice()">
-        <div class="ch-row">
-            <span>🔊 Голосовая связь</span>
-            <span id="v-timer" style="font-size:11px"></span>
-        </div>
-        <div id="v-users" class="v-list"></div>
+    <div id="v-btn" class="ch-row" style="cursor:pointer" onclick="toggleVoice()">
+        <span id="v-icon">🔊</span> <span id="v-label">Голосовая связь</span>
     </div>
+    <div id="v-users"></div>
 </div>
 
 <div class="main">
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
-    <div class="input-box">
-        <input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off">
-    </div>
+    <div class="input-box"><input type="text" id="ui" placeholder="Напишите что-нибудь..." autocomplete="off"></div>
 </div>
 
 <script>
@@ -115,43 +90,71 @@
     const db = firebase.database();
     const icqSound = new Audio('https://www.myinstants.com/media/sounds/icq-uh-oh.mp3');
 
-    // Настройки пользователя
     let myName = localStorage.getItem('chat_nick') || "Геймер";
     let myColor = localStorage.getItem('chat_color') || "#5865f2";
+    let selectedMic = localStorage.getItem('chat_mic') || 'default';
+    let selectedSpeaker = localStorage.getItem('chat_speaker') || 'default';
     const colors = ["#5865f2", "#ed4245", "#3ba55d", "#faa81a", "#eb459e", "#9b59b6", "#1abc9c", "#f1c40f"];
 
-    // --- ГОЛОСОВОЙ ДВИЖОК ---
-    let myPeerId = 'gc-' + Math.random().toString(36).substr(2, 9);
-    let peer = new Peer(myPeerId, {
-        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }, { 'urls': 'stun:stun1.l.google.com:19302' }]}
-    });
+    const myPeerId = 'gc-' + Math.random().toString(36).substr(2, 9);
+    const peer = new Peer(myPeerId, { config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]} });
     let myStream = null;
+
+    // --- АНАЛИЗАТОР ГОЛОСА ---
+    function monitorVoice(stream, elementId) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(stream);
+        const analyzer = ctx.createAnalyser();
+        analyzer.fftSize = 64;
+        src.connect(analyzer);
+        const data = new Uint8Array(analyzer.frequencyBinCount);
+        
+        function check() {
+            analyzer.getByteFrequencyData(data);
+            let vol = data.reduce((a, b) => a + b) / data.length;
+            const el = document.getElementById('ava-' + elementId);
+            if (el) el.classList.toggle('speaking', vol > 15);
+            if (myStream || Object.keys(peer.connections).length > 0) requestAnimationFrame(check);
+        }
+        check();
+    }
 
     function toggleVoice() {
         if (myStream) { location.reload(); } 
         else {
-            const constraints = { audio: { deviceId: document.getElementById('mic-list').value } };
-            navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+            navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } }).then(stream => {
                 myStream = stream;
-                document.getElementById('v-block').classList.add('v-active');
+                document.getElementById('v-btn').classList.add('v-active');
                 db.ref('voice_active').child(myName).set({ id: myPeerId, color: myColor });
                 db.ref('voice_active').child(myName).onDisconnect().remove();
+                monitorVoice(stream, myName);
             }).catch(() => alert("Разреши микрофон!"));
         }
     }
 
     peer.on('call', call => {
         call.answer(myStream);
-        call.on('stream', s => { 
-            const a = new Audio(); a.srcObject = s; a.play().catch(() => {}); 
+        call.on('stream', s => {
+            const a = new Audio(); a.srcObject = s;
+            if (a.setSinkId) a.setSinkId(selectedSpeaker);
+            a.play();
+            // Находим владельца стрима для свечения
+            db.ref('voice_active').once('value', snap => {
+                snap.forEach(u => { if(u.val().id === call.peer) monitorVoice(s, u.key); });
+            });
         });
     });
 
     db.ref('voice_active').on('child_added', s => {
-        const data = s.val();
-        if (data.id !== myPeerId && myStream) {
-            const call = peer.call(data.id, myStream);
-            call.on('stream', s => { const a = new Audio(); a.srcObject = s; a.play(); });
+        const d = s.val();
+        if (d.id !== myPeerId && myStream) {
+            const call = peer.call(d.id, myStream);
+            call.on('stream', s => {
+                const a = new Audio(); a.srcObject = s;
+                if (a.setSinkId) a.setSinkId(selectedSpeaker);
+                a.play();
+                monitorVoice(s, s.key);
+            });
         }
     });
 
@@ -159,7 +162,7 @@
         const b = document.getElementById('v-users'); b.innerHTML = "";
         s.forEach(c => {
             const u = c.val();
-            b.innerHTML += `<div class="v-u"><div class="ava" style="background:${u.color}">${c.key.charAt(0)}</div>${c.key}</div>`;
+            b.innerHTML += `<div class="v-u"><div class="ava" id="ava-${c.key}" style="background:${u.color}">${c.key.charAt(0)}</div>${c.key}</div>`;
         });
     });
 
@@ -177,52 +180,52 @@
             cp.appendChild(d);
         });
         navigator.mediaDevices.enumerateDevices().then(devices => {
-            const sel = document.getElementById('mic-list');
-            sel.innerHTML = "";
-            devices.filter(d => d.kind === 'audioinput').forEach(d => {
-                sel.innerHTML += `<option value="${d.deviceId}">${d.label || 'Микрофон'}</option>`;
+            const micSel = document.getElementById('mic-list');
+            const spkSel = document.getElementById('speaker-list');
+            micSel.innerHTML = ""; spkSel.innerHTML = "";
+            devices.forEach(d => {
+                const opt = `<option value="${d.deviceId}" ${d.deviceId === (d.kind==='audioinput'?selectedMic:selectedSpeaker)?'selected':''}>${d.label || 'Устройство'}</option>`;
+                if (d.kind === 'audioinput') micSel.innerHTML += opt;
+                if (d.kind === 'audiooutput') spkSel.innerHTML += opt;
             });
         });
     }
 
     function saveSettings() {
         myName = document.getElementById('set-nick').value || "Геймер";
+        selectedMic = document.getElementById('mic-list').value;
+        selectedSpeaker = document.getElementById('speaker-list').value;
         localStorage.setItem('chat_nick', myName);
         localStorage.setItem('chat_color', myColor);
+        localStorage.setItem('chat_mic', selectedMic);
+        localStorage.setItem('chat_speaker', selectedSpeaker);
         document.getElementById('modal').style.display = 'none';
     }
 
     // --- ЧАТ ---
     const emojis = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
     emojis.forEach(e => {
-        const s = document.createElement('span'); s.className = 'e-item'; s.innerText = e;
+        const s = document.createElement('span'); s.style.cursor='pointer'; s.style.fontSize='20px'; s.innerText = e;
         s.onclick = () => { document.getElementById('ui').value += e; document.getElementById('ui').focus(); };
         document.getElementById('eb').appendChild(s);
     });
 
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if (e.key === 'Enter' && ui.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: ui.value, c: myColor });
-            ui.value = "";
+    document.getElementById('ui').onkeydown = (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            db.ref('global_chat').push().set({ u: myName, t: e.target.value, c: myColor });
+            e.target.value = "";
         }
     };
 
-    db.ref('global_chat').on('child_added', s => {
-        const d = s.val(); const key = s.key;
-        const m = document.createElement('div'); m.className = 'msg'; m.id = 'msg-' + key;
-        const isAdm = d.u === 'CREATIV' ? 'admin' : '';
-        const del = (myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">УДАЛИТЬ</span>` : '';
+    db.ref('global_chat').limitToLast(50).on('child_added', s => {
+        const d = s.val();
+        const m = document.createElement('div'); m.className = 'msg';
         m.innerHTML = `<div class="ava" style="background:${d.c || '#5865f2'}">${d.u.charAt(0)}</div>
-            <div class="m-body"><div class="m-line1"><span class="m-u ${isAdm}">${d.u}</span>${del}</div>
-            <div style="color:#dcddde">${d.t}</div></div>`;
+            <div><div class="m-u ${d.u==='CREATIV'?'admin':''}">${d.u}</div><div style="color:#dcddde">${d.t}</div></div>`;
         document.getElementById('msgs').appendChild(m);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        if (d.u !== myName) icqSound.play().catch(() => {});
+        if (d.u !== myName) icqSound.play().catch(()=>{});
     });
-
-    window.deleteMsg = (k) => { if(confirm("Удалить?")) db.ref('global_chat').child(k).remove(); };
-    db.ref('global_chat').on('child_removed', s => { document.getElementById('msg-' + s.key).remove(); });
 </script>
 </body>
 </html>
