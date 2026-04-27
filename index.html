@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v34.0 - No Loop</title>
+    <title>GamerChat v35.0 - Firebase WebRTC Engine</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
@@ -20,70 +19,76 @@
         .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; }
         .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; }
         
-        /* АВАТАРКА С ЦВЕТОМ */
-        .ava { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s; }
+        /* АВАТАРКА С ПУЛЬСАЦИЕЙ */
+        .ava { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s; flex-shrink: 0; }
         .speaking { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.1); background-color: var(--green) !important; }
 
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .msg { margin-bottom: 12px; display: flex; gap: 12px; }
-        .m-u { font-weight: bold; color: white; }
+        .m-u { font-weight: bold; color: white; margin-right: 5px; }
         .m-u.admin { color: var(--gold); }
 
-        /* РАЦИЯ */
-        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); border-top: 1px solid #222; }
-        .ptt-btn { background: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
+        /* Эмодзи бар */
+        .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; }
+        .e-item { cursor: pointer; font-size: 22px; transition: 0.1s; }
+        .e-item:hover { transform: scale(1.2); }
+
+        /* Рация */
+        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); }
+        .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; letter-spacing: 1px; }
         .ptt-btn:active { background: var(--green); }
-        .ptt-btn.disabled { background: #4f545c; cursor: not-allowed; }
         .v-st { font-size: 10px; text-align: center; margin-bottom: 8px; font-weight: bold; color: #949ba4; }
 
-        /* НАСТРОЙКИ */
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
+        /* Настройки */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
+        .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 350px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
         
-        .color-p { display: flex; gap: 8px; flex-wrap: wrap; }
-        .color-dot { width: 25px; height: 25px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .color-p { display: flex; gap: 8px; flex-wrap: wrap; margin: 5px 0; }
+        .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
         .color-dot.selected { border-color: white; transform: scale(1.2); }
-        
-        .emoji-bar { padding: 5px 15px; display: flex; gap: 10px; overflow-x: auto; background: rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
+
 <div id="modal">
     <div class="m-content">
         <h3 style="margin:0">Настройки профиля</h3>
-        <label style="font-size:11px">Никнейм:</label>
+        <label style="font-size:12px">Твой ник:</label>
         <input type="text" id="set-nick">
-        <label style="font-size:11px">Цвет аватарки:</label>
+        <label style="font-size:12px">Цвет аватарки:</label>
         <div class="color-p" id="color-picker"></div>
-        <label style="font-size:11px">Микрофон:</label>
+        <hr style="opacity:0.1">
+        <label style="font-size:12px">Микрофон:</label>
         <select id="mic-list"></select>
-        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Применить</button>
+        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Сохранить всё</button>
     </div>
 </div>
 
 <div class="sidebar">
-    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer">⚙️</span></div>
+    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer">??</span></div>
     <div class="cat">Текстовые каналы</div>
     <div style="padding: 8px 15px; color:#949ba4"># общее-семейное</div>
     
     <div class="cat">Голосовая рация</div>
-    <div id="net-st" style="padding: 8px 15px; color:var(--red); font-size: 10px; font-weight:bold">● СЕТЬ: ПОИСК СЕРВЕРА...</div>
+    <div id="net-st" style="padding: 8px 15px; color:var(--green); font-size: 11px; font-weight:bold">? СЕТЬ: ЧЕРЕЗ FIREBASE</div>
     <div id="v-users" class="v-list"></div>
 </div>
 
 <div class="main">
     <div id="msgs"></div>
+    
     <div class="emoji-bar" id="eb"></div>
+    
     <div class="radio-box">
-        <div id="v-info" class="v-st">ГОЛОС ОТКЛЮЧЕН</div>
-        <button id="ptt-trigger" class="ptt-btn disabled">РАЦИЯ НЕ ПОДКЛЮЧЕНА</button>
+        <div id="v-info" class="v-st">НАСТРОЙКА КАНАЛА...</div>
+        <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ, ЧТОБЫ ГОВОРИТЬ ??</button>
     </div>
+
     <div style="padding:15px 20px; background: var(--bg);">
-        <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:12px; border-radius:8px; color:white; outline:none;" placeholder="Написать сообщение..." autocomplete="off">
+        <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Написать сообщение..." autocomplete="off">
     </div>
 </div>
-
 <script>
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
@@ -104,55 +109,33 @@
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     const colorOptions = ["#5865f2", "#ed4245", "#3ba55d", "#faa81a", "#eb459e", "#9b59b6", "#1abc9c", "#f1c40f"];
 
-    let peer = null;
     let myStream = null;
-    const myPeerId = 'id-' + Math.random().toString(36).substr(2, 6);
+    let connections = {}; // Храним все активные WebRTC соединения
 
-    function startPeer() {
-        // Пробуем стандартный сервер, но БЕЗ цикличной перезагрузки
-        peer = new Peer(myPeerId, {
-            config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]}
-        });
-
-        peer.on('open', () => {
-            document.getElementById('net-st').innerHTML = "● СЕТЬ: ОНЛАЙН";
-            document.getElementById('net-st').style.color = "var(--green)";
-            const btn = document.getElementById('ptt-trigger');
-            btn.classList.remove('disabled');
-            btn.innerText = "ЗАЖМИ, ЧТОБЫ ГОВОРИТЬ 🎤";
-            initMic();
-        });
-
-        peer.on('error', (err) => {
-            console.log("PeerJS error:", err.type);
-            document.getElementById('net-st').innerHTML = "● СЕТЬ: ГОЛОС НЕДОСТУПЕН";
-            document.getElementById('net-st').style.color = "var(--red)";
-        });
-
-        peer.on('call', call => {
-            call.answer(myStream);
-            call.on('stream', s => {
-                const a = new Audio(); a.srcObject = s; a.play().catch(() => {});
-            });
-        });
-    }
-
-    async function initMic() {
+    // Инициализация микрофона
+    async function initSystem() {
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
             myStream.getAudioTracks().forEach(t => t.enabled = false);
-            db.ref('voice_active').child(myName).set({ id: myPeerId, speaking: false, color: myColor });
-            db.ref('voice_active').child(myName).onDisconnect().remove();
+            
+            // Регистрируемся в сети
+            const myRef = db.ref('voice_v2').child(myName);
+            myRef.set({ speaking: false, color: myColor, ts: Date.now() });
+            myRef.onDisconnect().remove();
+            
             document.getElementById('v-info').innerText = "РАЦИЯ ГОТОВА";
-        } catch (e) { console.log("Mic error"); }
+            document.getElementById('v-info').style.color = "var(--green)";
+            
+            listenForCalls();
+        } catch (e) { alert("Разреши микрофон!"); }
     }
 
-    // Рация
+    // ЛОГИКА РАЦИИ (PTT)
     const pttBtn = document.getElementById('ptt-trigger');
     const toggleTalk = (on) => {
-        if (!myStream || pttBtn.classList.contains('disabled')) return;
+        if (!myStream) return;
         myStream.getAudioTracks().forEach(t => t.enabled = on);
-        db.ref('voice_active').child(myName).update({ speaking: on });
+        db.ref('voice_v2').child(myName).update({ speaking: on });
         document.getElementById('v-info').innerText = on ? "ВЫ В ЭФИРЕ!" : "РАЦИЯ ГОТОВА";
         document.getElementById('v-info').style.color = on ? "var(--green)" : "#949ba4";
     };
@@ -162,19 +145,76 @@
     pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); toggleTalk(true); });
     pttBtn.addEventListener('touchend', () => toggleTalk(false));
 
-    db.ref('voice_active').on('child_added', s => {
-        if (s.val().id !== myPeerId && peer) peer.call(s.val().id, myStream);
-    });
-
-    db.ref('voice_active').on('value', s => {
-        const b = document.getElementById('v-users'); b.innerHTML = "";
-        s.forEach(c => {
-            const u = c.val();
-            b.innerHTML += `<div class="v-u"><div class="ava ${u.speaking?'speaking':''}" style="background:${u.color || '#5865f2'}">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
+    // --- ГЛАВНЫЙ WEB-RTC ДВИЖОК (БЕЗ PEERJS) ---
+    
+    function listenForCalls() {
+        // Следим за списком участников
+        db.ref('voice_v2').on('value', s => {
+            const b = document.getElementById('v-users'); b.innerHTML = "";
+            s.forEach(c => {
+                const u = c.val();
+                b.innerHTML += `<div class="v-u"><div class="ava ${u.speaking?'speaking':''}" style="background:${u.color || '#5865f2'}">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
+                
+                // Если появился новый человек и это не я - пробуем соединиться
+                if (c.key !== myName && !connections[c.key]) {
+                    setupWebRTC(c.key);
+                }
+            });
         });
-    });
 
-    // Настройки
+        // Слушаем сигналы (Offer/Answer/ICE) через Firebase
+        db.ref('signals').child(myName).on('child_added', async s => {
+            const data = s.val();
+            const from = data.from;
+            if (!connections[from]) setupWebRTC(from);
+            
+            const pc = connections[from];
+            if (data.type === 'offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                sendSignal(from, { type: 'answer', answer: answer });
+            } else if (data.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            } else if (data.type === 'ice') {
+                await pc.addIceCandidate(new RTCIceCandidate(data.ice));
+            }
+            s.ref.remove();
+        });
+    }
+
+    function setupWebRTC(targetName) {
+        const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        });
+        connections[targetName] = pc;
+
+        myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
+
+        pc.onicecandidate = e => {
+            if (e.candidate) sendSignal(targetName, { type: 'ice', ice: e.candidate });
+        };
+
+        pc.ontrack = e => {
+            const a = new Audio(); a.srcObject = e.streams[0];
+            a.play().catch(() => {});
+        };
+
+        // Если мы "первые", создаем Offer
+        if (myName < targetName) {
+            pc.onnegotiationneeded = async () => {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                sendSignal(targetName, { type: 'offer', offer: offer });
+            };
+        }
+    }
+
+    function sendSignal(to, data) {
+        db.ref('signals').child(to).push({ ...data, from: myName });
+    }
+
+    // --- НАСТРОЙКИ, ЧАТ И СМАЙЛЫ ---
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
@@ -201,14 +241,20 @@
         location.reload();
     };
 
-    // Чат
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if (e.key === 'Enter' && ui.value.trim()) {
-            db.ref('global_chat').push().set({ u: myName, t: ui.value, color: myColor }); ui.value = "";
+    const emojis = ["??","??","??","??","??","??","??","??","?","??","??","??","??","??","??","??","??","?","?","??"];
+    emojis.forEach(e => {
+        const s = document.createElement('span'); s.className = 'e-item'; s.innerText = e;
+        s.onclick = () => { document.getElementById('ui').value += e; document.getElementById('ui').focus(); };
+        document.getElementById('eb').appendChild(s);
+    });
+
+    document.getElementById('ui').onkeydown = (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) {
+            db.ref('global_chat').push().set({ u: myName, t: e.target.value, color: myColor }); e.target.value = "";
         }
     };
-    db.ref('global_chat').limitToLast(40).on('child_added', s => {
+
+    db.ref('global_chat').limitToLast(30).on('child_added', s => {
         const d = s.val();
         const m = document.createElement('div'); m.className = 'msg';
         m.innerHTML = `<div class="ava" style="background:${d.color || '#5865f2'}">${d.u.charAt(0)}</div><div><span class="m-u ${d.u==='CREATIV'?'admin':''}">${d.u}:</span><span style="color:#dcddde">${d.t}</span></div>`;
@@ -217,7 +263,7 @@
         if (d.u !== myName) icqSound.play().catch(()=>{});
     });
 
-    startPeer();
+    initSystem();
 </script>
 </body>
 </html>
