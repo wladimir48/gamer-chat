@@ -3,41 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v35.1 - UTF8 Fix</title>
+    <title>GamerChat v36.0 - Stable Voice</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
-        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
+        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
         .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; }
         .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-        
         .ava { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s; flex-shrink: 0; }
         .speaking { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.1); background-color: var(--green) !important; }
-
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
         .msg { margin-bottom: 12px; display: flex; gap: 12px; }
         .m-u { font-weight: bold; color: white; }
-        .m-u.admin { color: var(--gold); }
-
         .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
         .e-item { cursor: pointer; font-size: 22px; }
-
         .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); }
         .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
         .ptt-btn:active { background: var(--green); }
-        
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
-        
         .color-p { display: flex; gap: 8px; flex-wrap: wrap; margin: 5px 0; }
         .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
         .color-dot.selected { border-color: white; transform: scale(1.2); }
@@ -46,40 +36,35 @@
 <body>
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0">Настройки профиля</h3>
-        <label style="font-size:12px">Твой ник:</label>
+        <h3 style="margin:0">Настройки</h3>
+        <label style="font-size:12px">Ник:</label>
         <input type="text" id="set-nick">
-        <label style="font-size:12px">Цвет аватарки:</label>
+        <label style="font-size:12px">Цвет:</label>
         <div class="color-p" id="color-picker"></div>
-        <hr style="opacity:0.1">
         <label style="font-size:12px">Микрофон:</label>
         <select id="mic-list"></select>
-        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Сохранить</button>
+        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">OK</button>
     </div>
 </div>
-
 <div class="sidebar">
-    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer; font-size:20px;">*</span></div>
+    <div class="header">GamerChat <span onclick="openSettings()" style="cursor:pointer; font-size:18px;">&#9881;</span></div>
     <div class="cat">Текстовые каналы</div>
-    <div style="padding: 8px 15px; color:#949ba4"># общее-семейное</div>
-    
+    <div style="padding: 8px 15px; color:#949ba4">&#35; общее-семейное</div>
     <div class="cat">Голосовая рация</div>
     <div id="net-st" style="padding: 8px 15px; color:var(--green); font-size: 11px; font-weight:bold">● СЕТЬ: ОНЛАЙН</div>
     <div id="v-users" class="v-list"></div>
 </div>
-
 <div class="main">
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
     <div class="radio-box">
         <div id="v-info" style="font-size:10px; text-align:center; margin-bottom:8px; font-weight:bold; color:#949ba4">РАЦИЯ ГОТОВА</div>
-        <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ И ГОВОРИ</button>
+        <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ И ГОВОРИ &#127897;</button>
     </div>
     <div style="padding:15px 20px; background: var(--bg);">
-        <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Написать сообщение..." autocomplete="off">
+        <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Сообщение..." autocomplete="off">
     </div>
 </div>
-
 <script>
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
@@ -107,20 +92,18 @@
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
             myStream.getAudioTracks().forEach(t => t.enabled = false);
-            
             const myRef = db.ref('voice_v2').child(myName);
-            myRef.set({ speaking: false, color: myColor, ts: Date.now() });
+            myRef.set({ speaking: false, color: myColor });
             myRef.onDisconnect().remove();
-            
             listenForSignals();
-        } catch (e) { console.error(e); }
+        } catch (e) { alert("Включи микрофон!"); }
     }
 
     const talk = (on) => {
         if (!myStream) return;
         myStream.getAudioTracks().forEach(t => t.enabled = on);
         db.ref('voice_v2').child(myName).update({ speaking: on });
-        document.getElementById('v-info').innerText = on ? "ВЫ В ЭФИРЕ!" : "РАЦИЯ ГОТОВА";
+        document.getElementById('v-info').innerText = on ? "В ЭФИРЕ!" : "РАЦИЯ ГОТОВА";
         document.getElementById('v-info').style.color = on ? "var(--green)" : "#949ba4";
     };
 
@@ -144,16 +127,22 @@
             const d = s.val(); const from = d.from;
             if (!connections[from]) setupWebRTC(from);
             const pc = connections[from];
-            if (d.type === 'offer') {
-                await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                const ans = await pc.createAnswer();
-                await pc.setLocalDescription(ans);
-                sendSignal(from, { type: 'answer', answer: ans });
-            } else if (d.type === 'answer') {
-                await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
-            } else if (d.type === 'ice') {
-                await pc.addIceCandidate(new RTCIceCandidate(d.ice));
-            }
+            
+            try {
+                if (d.type === 'offer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
+                    const ans = await pc.createAnswer();
+                    await pc.setLocalDescription(ans);
+                    sendSignal(from, { type: 'answer', answer: ans });
+                } else if (d.type === 'answer') {
+                    await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
+                } else if (d.type === 'ice' && d.ice) {
+                    // ФИКС ОШИБКИ ИЗ КОНСОЛИ: проверяем наличие нужных полей
+                    if (d.ice.candidate !== undefined) {
+                        await pc.addIceCandidate(new RTCIceCandidate(d.ice));
+                    }
+                }
+            } catch (e) { console.error("WebRTC Error:", e); }
             s.ref.remove();
         });
     }
@@ -164,6 +153,7 @@
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
         pc.onicecandidate = e => { if (e.candidate) sendSignal(target, { type: 'ice', ice: e.candidate }); };
         pc.ontrack = e => { const a = new Audio(); a.srcObject = e.streams[0]; a.play().catch(()=>{}); };
+        
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
                 const off = await pc.createOffer();
@@ -201,10 +191,10 @@
         location.reload();
     };
 
-    const emojis = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
+    const emojis = ["&#128512;","&#128514;","&#128522;","&#128525;","&#128526;","&#129300;","&#128077;","&#128293;","&#10024;","&#127881;","&#128075;","&#128557;","&#128561;","&#128545;","&#128128;","&#128169;","&#10084;","&#9989;","&#10060;","&#127918;"];
     emojis.forEach(e => {
-        const s = document.createElement('span'); s.className = 'e-item'; s.innerText = e;
-        s.onclick = () => { document.getElementById('ui').value += e; document.getElementById('ui').focus(); };
+        const s = document.createElement('span'); s.className = 'e-item'; s.innerHTML = e;
+        s.onclick = () => { document.getElementById('ui').value += s.innerText; document.getElementById('ui').focus(); };
         document.getElementById('eb').appendChild(s);
     });
 
