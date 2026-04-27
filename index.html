@@ -2,86 +2,92 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Discord Clone v12.0 - Emojis</title>
+    <title>GamerChat v14.0 - Total Stable</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <!-- Библиотека для выбора смайликов -->
-    <script src="https://jsdelivr.net"></script>
     <style>
         :root {
             --bg-guilds: #1e1f22; --bg-sidebar: #2b2d31; --bg-chat: #313338;
             --bg-input: #383a40; --text-main: #dbdee1; --text-muted: #949ba4;
+            --accent: #5865f2; --admin-gold: #f1c40f;
         }
-        body { background-color: var(--bg-guilds); color: var(--text-main); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        body { background-color: var(--bg-guilds); color: var(--text-main); font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* 1. Серверы */
+        /* Панели */
         .guilds { width: 72px; background: var(--bg-guilds); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; flex-shrink: 0; }
-        .g-icon { width: 48px; height: 48px; background: var(--bg-chat); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-weight: bold; }
-        .g-icon:hover, .g-icon.active { border-radius: 15px; background: #5865f2; color: white; }
-
-        /* 2. Каналы */
         .sidebar { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+        .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); position: relative; }
+        .members { width: 240px; background: var(--bg-sidebar); padding: 8px; flex-shrink: 0; border-left: 1px solid rgba(0,0,0,0.1); }
+
+        .g-icon { width: 48px; height: 48px; background: var(--bg-chat); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .g-icon:hover { border-radius: 15px; background: var(--accent); }
         .s-header { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); color: white; }
-        .c-list { flex: 1; padding: 8px; overflow-y: auto; }
-        .c-cat { color: var(--text-muted); text-transform: uppercase; font-size: 12px; font-weight: bold; margin: 16px 0 4px 8px; }
-        .c-item { padding: 6px 8px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text-muted); }
-        .c-item:hover, .c-item.active { background: #35373c; color: var(--text-main); }
-        
-        /* 3. Основной чат */
-        .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg-chat); }
-        .chat-h { padding: 12px 16px; font-weight: bold; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+        .c-item { padding: 8px; margin: 2px 8px; border-radius: 4px; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+        .c-item.active { background: #3f4147; color: white; }
+
+        /* Чат */
         #msgs { flex: 1; overflow-y: auto; padding: 16px 0; }
-        .msg { display: flex; padding: 4px 16px; gap: 16px; }
-        .m-ava { width: 40px; height: 40px; border-radius: 50%; background: #5865f2; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
-        .m-user { font-weight: 500; color: white; margin-right: 8px; }
+        .msg { display: flex; padding: 4px 16px; gap: 16px; transition: 0.1s; }
+        .msg:hover { background: rgba(0,0,0,0.05); }
+        .m-ava { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
+        .m-user { font-weight: bold; color: white; margin-right: 8px; }
+        .m-user.admin { color: var(--admin-gold); }
         .m-time { font-size: 12px; color: var(--text-muted); }
 
-        /* Ввод со смайликом */
-        .chat-i { padding: 0 16px 24px 16px; position: relative; }
-        .input-wrapper { display: flex; background: var(--bg-input); border-radius: 8px; align-items: center; padding: 0 12px; }
-        input { flex: 1; background: transparent; border: none; padding: 11px; color: var(--text-main); outline: none; }
-        #emoji-btn { cursor: pointer; font-size: 20px; filter: grayscale(1); transition: 0.2s; }
-        #emoji-btn:hover { filter: grayscale(0); transform: scale(1.1); }
+        /* Поле ввода и Эмодзи */
+        .chat-i { padding: 20px; position: relative; }
+        .input-box { background: var(--bg-input); border-radius: 8px; display: flex; align-items: center; padding: 0 12px; }
+        input { flex: 1; background: transparent; border: none; padding: 12px; color: white; outline: none; }
+        .emoji-btn { cursor: pointer; font-size: 20px; opacity: 0.7; padding: 5px; transition: 0.2s; }
+        .emoji-btn:hover { opacity: 1; transform: scale(1.1); }
+        
+        #emoji-picker { 
+            position: absolute; bottom: 80px; right: 20px; background: #232428; 
+            border: 1px solid #111; border-radius: 8px; display: none; 
+            grid-template-columns: repeat(6, 1fr); padding: 10px; gap: 5px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); z-index: 100;
+        }
+        .emoji-pick { cursor: pointer; font-size: 22px; padding: 4px; border-radius: 4px; text-align: center; }
+        .emoji-pick:hover { background: #3f4147; }
 
-        /* 4. Участники */
-        .members { width: 240px; background: var(--bg-sidebar); padding: 8px; flex-shrink: 0; border-left: 1px solid rgba(0,0,0,0.1); }
-        .m-group { color: var(--text-muted); font-size: 12px; font-weight: bold; padding: 16px 8px 4px 8px; }
-        .m-card { display: flex; align-items: center; gap: 12px; padding: 6px 8px; }
+        /* Список участников */
+        .m-card { display: flex; align-items: center; gap: 10px; padding: 6px; }
+        .m-group { font-size: 12px; font-weight: bold; color: var(--text-muted); padding: 10px; }
+        .crown { color: var(--admin-gold); margin-left: 4px; font-size: 12px; }
 
-        .u-panel { background: #232428; padding: 8px; display: flex; align-items: center; gap: 8px; }
+        .u-panel { background: #232428; padding: 10px; display: flex; align-items: center; gap: 10px; }
     </style>
 </head>
 <body>
 
 <div class="guilds">
-    <div class="g-icon active">C</div>
+    <div class="g-icon" style="background: var(--accent); color: white;">C</div>
     <div class="g-icon" style="color:#23a559">+</div>
 </div>
 
 <div class="sidebar">
     <div class="s-header">Сервер CREATIV ⌄</div>
-    <div class="c-list">
-        <div class="c-cat">Текстовые каналы</div>
-        <div class="c-item active"># основной</div>
-        <div class="c-cat">Голосовые каналы</div>
-        <div class="c-item">🔊 Основной</div>
+    <div style="flex:1">
+        <div style="color:var(--text-muted); font-size:11px; font-weight:bold; padding:18px 16px 4px 16px;">ТЕКСТОВЫЕ КАНАЛЫ</div>
+        <div class="c-item active"><span>#</span> основной</div>
+        <div style="color:var(--text-muted); font-size:11px; font-weight:bold; padding:18px 16px 4px 16px;">ГОЛОСОВЫЕ КАНАЛЫ</div>
+        <div class="c-item"><span>🔊</span> Основной</div>
     </div>
     <div class="u-panel">
-        <div class="m-ava" style="width:32px; height:32px; font-size:12px;" id="my-ava">?</div>
-        <div style="flex:1; font-size:13px;">
-            <div style="font-weight:bold; color:white;" id="my-nick">...</div>
-            <div style="color:var(--text-muted); font-size:11px;">#онлайн</div>
-        </div>
+        <div class="m-ava" id="my-ava" style="width:32px; height:32px; font-size:12px">?</div>
+        <div style="font-weight:bold; font-size:13px;" id="my-nick">...</div>
     </div>
 </div>
 
 <div class="chat">
-    <div class="chat-h"># основной</div>
+    <div class="s-header"># основной</div>
     <div id="msgs"></div>
+    <!-- ПАНЕЛЬ ЭМОДЗИ -->
+    <div id="emoji-picker"></div>
     <div class="chat-i">
-        <div class="input-wrapper">
-            <input type="text" id="ui" placeholder="Написать в #основной">
-            <div id="emoji-btn">😀</div>
+        <div class="input-box">
+            <input type="text" id="ui" placeholder="Написать в #основной" autocomplete="off">
+            <div class="emoji-btn" onclick="toggleEmojis()">😀</div>
         </div>
     </div>
 </div>
@@ -104,40 +110,51 @@
 
     firebase.initializeApp(cfg);
     const db = firebase.database();
-    let myName = localStorage.getItem('chat_nick') || prompt("Твой ник:", "Геймер") || "Аноним";
+    let myName = localStorage.getItem('chat_nick') || prompt("Введи никнейм:", "Геймер") || "Аноним";
     localStorage.setItem('chat_nick', myName);
     document.getElementById('my-nick').innerText = myName;
     document.getElementById('my-ava').innerText = myName[0].toUpperCase();
 
-    // --- ЛОГИКА ЭМОДЗИ ---
-    const picker = new EmojiButton({
-        position: 'top-start',
-        theme: 'dark',
-        autoHide: false
+    // 1. ПАНЕЛЬ СМАЙЛИКОВ (встроенная)
+    const emojiList = ["😀","😂","😊","😍","😎","🤔","👍","🔥","✨","🎉","👋","😭","😱","😡","💀","💩","❤️","✅","❌","🎮"];
+    const picker = document.getElementById('emoji-picker');
+    emojiList.forEach(emoji => {
+        const span = document.createElement('span');
+        span.className = 'emoji-pick';
+        span.innerText = emoji;
+        span.onclick = () => {
+            document.getElementById('ui').value += emoji;
+            picker.style.display = 'none';
+            document.getElementById('ui').focus();
+        };
+        picker.appendChild(span);
     });
-    const trigger = document.querySelector('#emoji-btn');
-    const input = document.querySelector('#ui');
+    function toggleEmojis() { picker.style.display = (picker.style.display === 'grid') ? 'none' : 'grid'; }
 
-    picker.on('emoji', selection => {
-        input.value += selection.emoji;
-        input.focus();
-    });
-
-    trigger.addEventListener('click', () => picker.togglePicker(trigger));
-
-    // --- ОСТАЛЬНАЯ ЛОГИКА ---
-    const myStatusRef = db.ref('presence/' + myName);
-    myStatusRef.set({ name: myName }).onDisconnect().remove();
+    // 2. СПИСОК УЧАСТНИКОВ
+    const presenceRef = db.ref('presence/' + myName);
+    presenceRef.set({ name: myName }).onDisconnect().remove();
 
     db.ref('presence').on('value', s => {
         const list = document.getElementById('member-list');
         list.innerHTML = "";
         s.forEach(child => {
             const u = child.val();
-            list.innerHTML += `<div class="m-card"><div class="m-ava" style="width:32px; height:32px; font-size:14px;">${u.name[0]}</div><div style="font-weight:500;">${u.name}</div></div>`;
+            const isAdmin = (u.name === "CREATIV");
+            list.innerHTML += `
+                <div class="m-card">
+                    <div class="m-ava" style="width:32px; height:32px; font-size:14px; background:${isAdmin?'#f1c40f':''}">
+                        ${u.name[0].toUpperCase()}
+                    </div>
+                    <div style="font-weight:bold; color:${isAdmin?'#f1c40f':''}">
+                        ${u.name} ${isAdmin?'<span class="crown">👑</span>':''}
+                    </div>
+                </div>`;
         });
     });
 
+    // 3. ОТПРАВКА И ПОЛУЧЕНИЕ
+    const input = document.getElementById('ui');
     input.onkeypress = (e) => {
         if(e.key === 'Enter' && input.value.trim()){
             db.ref('global_chat').push().set({
@@ -145,17 +162,19 @@
                 time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
             });
             input.value = "";
+            picker.style.display = 'none';
         }
     };
 
     db.ref('global_chat').limitToLast(50).on('child_added', s => {
         const d = s.val();
+        const isAdmin = (d.u === "CREATIV");
         const m = document.createElement('div');
         m.className = 'msg';
         m.innerHTML = `
-            <div class="m-ava">${d.u[0]}</div>
+            <div class="m-ava" style="background:${isAdmin?'#f1c40f':''}">${d.u[0].toUpperCase()}</div>
             <div class="m-body">
-                <div><span class="m-user">${d.u}</span><span class="m-time">${d.time || ''}</span></div>
+                <div><span class="m-user ${isAdmin?'admin':''}">${d.u}</span><span class="m-time">${d.time || ''}</span></div>
                 <div class="m-text">${d.t}</div>
             </div>`;
         document.getElementById('msgs').appendChild(m);
