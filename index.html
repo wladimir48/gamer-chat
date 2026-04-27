@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat - Version 2.0</title>
-    <!-- Измененные ссылки на скрипты -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -13,8 +12,9 @@
         .icon:hover { border-radius: 30%; background-color: #4752c4; }
         .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #313338; position: relative; }
         #msgs { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
-        .msg { margin-bottom: 12px; background: rgba(79, 84, 92, 0.16); padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; word-wrap: break-word; }
-        .author { color: #fff; font-weight: bold; margin-bottom: 4px; }
+        .msg { margin-bottom: 12px; background: rgba(79, 84, 92, 0.16); padding: 10px; border-radius: 8px; border-left: 4px solid #5865f2; position: relative; }
+        .author { color: #fff; font-weight: bold; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+        .del-btn { color: #f23f43; cursor: pointer; font-size: 0.7em; margin-left: 10px; text-transform: uppercase; background: rgba(242, 63, 67, 0.1); padding: 2px 5px; border-radius: 3px; }
         .input-box { padding: 20px; }
         input { width: 100%; background: #383a40; border: none; border-radius: 8px; padding: 12px; color: white; outline: none; box-sizing: border-box; }
         .status { text-align: center; color: #23a559; padding: 5px; font-size: 0.8em; font-weight: bold; background: #2b2d31; }
@@ -23,8 +23,8 @@
 </head>
 <body>
     <div class="servers">
-        <div class="icon" onclick="location.reload()" title="Текстовый чат">G</div>
-        <div class="icon" style="margin-top:10px; background:#23a559;" onclick="toggleVoice()" title="Голосовой канал">🎤</div>
+        <div class="icon" onclick="location.reload()">G</div>
+        <div class="icon" style="margin-top:10px; background:#23a559;" onclick="toggleVoice()">🎤</div>
     </div>
 
     <div id="voice-wrap">
@@ -32,7 +32,7 @@
             <span>Голосовой канал</span>
             <button onclick="toggleVoice()" style="cursor:pointer; background:#f23f43; border:none; color:white; padding:5px 15px; border-radius:5px;">ВЫЙТИ</button>
         </div>
-        <iframe src="https://8x8.vc/vpaas-magic-cookie-3d5f9b8c0e6a4b1ba6848c9527f311c1/GamerChat_Room_48" allow="microphone; camera" style="width:100%;height:calc(100% - 45px);border:none;"></iframe>
+        <iframe src="https://8x8.vc/vpaas-magic-cookie-3d5f9b8c0e6a4b1ba6848c9527f311c1/GamerChat_Room_48" allow="microphone; camera" style="width:100%; height:calc(100% - 45px); border:none;"></iframe>
     </div>
 
     <div class="chat-area">
@@ -52,7 +52,6 @@
         appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
-
     function toggleVoice() {
         const v = document.getElementById('voice-wrap');
         v.style.display = (v.style.display === 'none') ? 'block' : 'none';
@@ -62,12 +61,16 @@
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(cfg);
             const db = firebase.database();
-            let myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
+
+            // ЗАПОМИНАЕМ НИК
+            let myName = localStorage.getItem('chat_nick');
+            if (!myName) {
+                myName = prompt("Введи свой никнейм:", "Геймер") || "Аноним";
+                localStorage.setItem('chat_nick', myName);
+            }
 
             db.ref('.info/connected').on('value', s => {
-                const statusEl = document.getElementById('st');
-                statusEl.innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
-                statusEl.style.color = s.val() ? "#23a559" : "#f23f43";
+                document.getElementById('st').innerText = s.val() ? "ТЫ В СЕТИ! ПИШИ!" : "ПОИСК СЕРВЕРА...";
             });
 
             document.getElementById('ui').onkeypress = function(e) {
@@ -77,19 +80,41 @@
                 }
             };
 
+            // ЛОГИКА ОТОБРАЖЕНИЯ И УДАЛЕНИЯ
             db.ref('global_chat').limitToLast(50).on('child_added', s => {
                 const d = s.val();
+                const key = s.key;
                 const m = document.createElement('div');
                 m.className = 'msg';
+                m.id = 'msg-' + key;
+
                 if (d.u === "CREATIV") {
                     m.style.borderLeft = "4px solid #ffca28";
                     m.style.background = "rgba(255, 202, 40, 0.1)";
                 }
-                m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>${d.u}</div><div>${d.t}</div>`;
-                const msgs = document.getElementById('msgs');
-                msgs.appendChild(m);
-                msgs.scrollTop = msgs.scrollHeight;
+
+                // Кнопка удаления (видна тебе или админу CREATIV)
+                let delBtn = (d.u === myName || myName === "CREATIV") ? `<span class="del-btn" onclick="deleteMsg('${key}')">Удалить</span>` : "";
+
+                m.innerHTML = `<div class="author" ${d.u === "CREATIV" ? 'style="color:#ffca28"' : ''}>
+                    <span>${d.u}</span>${delBtn}
+                </div><div>${d.t}</div>`;
+                
+                document.getElementById('msgs').appendChild(m);
+                document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
             });
+
+            // Слушаем удаление из базы
+            db.ref('global_chat').on('child_removed', s => {
+                const m = document.getElementById('msg-' + s.key);
+                if (m) m.remove();
+            });
+
+            window.deleteMsg = function(key) {
+                if(confirm("Удалить сообщение?")) {
+                    db.ref('global_chat').child(key).remove();
+                }
+            };
         }
     };
 </script>
