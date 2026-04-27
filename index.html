@@ -1,50 +1,16 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v38.0 - Stable Voice</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <style>
-        :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
-        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
-        .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; }
-        .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
-        .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
-        .v-list { padding-left: 40px; display: flex; flex-direction: column; gap: 8px; }
-        .v-u { display: flex; align-items: center; gap: 10px; font-size: 14px; }
-        .ava { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: white; font-weight: bold; border: 2px solid transparent; transition: 0.2s; flex-shrink: 0; }
-        .speaking { border-color: var(--green) !important; box-shadow: 0 0 15px var(--green); transform: scale(1.1); background-color: var(--green) !important; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { margin-bottom: 12px; display: flex; gap: 12px; }
-        .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
-        .e-item { cursor: pointer; font-size: 22px; }
-        .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 10px; }
-        .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
-        .ptt-btn:active { background: var(--green); }
-        .ptt-btn.disabled { background: #4f545c; cursor: not-allowed; }
-        .leave-btn { background: var(--red); color: white; border: none; padding: 10px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; display: none; }
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
-        .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
-        select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
-        .color-p { display: flex; gap: 8px; flex-wrap: wrap; margin: 5px 0; }
-        .color-dot { width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-        .color-dot.selected { border-color: white; transform: scale(1.2); }
-    </style>
-</head>
 <body>
+<!-- Сюда будут падать входящие голоса, чтобы браузер их не блокировал -->
+<div id="remote-audio-container" style="display:none"></div>
+
 <div id="modal">
     <div class="m-content">
         <h3 style="margin:0">Устройства</h3>
         <label style="font-size:12px">Ник:</label>
         <input type="text" id="set-nick">
-        <label style="font-size:12px">Цвет аватарки:</label>
         <div class="color-p" id="color-picker"></div>
-        <label style="font-size:12px">Микрофон:</label>
+        <label style="font-size:11px">Микрофон:</label>
         <select id="mic-list"></select>
-        <label style="font-size:12px">Динамики:</label>
+        <label style="font-size:11px">Динамики:</label>
         <select id="speaker-list"></select>
         <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Сохранить</button>
     </div>
@@ -64,7 +30,7 @@
     <div class="emoji-bar" id="eb"></div>
     <div class="radio-box">
         <button id="ptt-trigger" class="ptt-btn" onclick="connectVoiceManually()">ПОДКЛЮЧИТЬСЯ К ГОЛОСУ</button>
-        <button id="leave-btn" class="leave-btn" onclick="disconnectVoice()">ОТКЛЮЧИТЬСЯ</button>
+        <button id="leave-btn" class="leave-btn" onclick="disconnectVoice()">ВЫЙТИ ИЗ КАНАЛА</button>
     </div>
     <div style="padding:15px 20px; background: var(--bg);">
         <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Сообщение..." autocomplete="off">
@@ -98,52 +64,60 @@
     async function connectVoiceManually() {
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
+            // Вместо выключения трека, мы просто ставим его на "Mute" в базе, но WebRTC держим активным
             myStream.getAudioTracks().forEach(t => t.enabled = false);
             
-            document.getElementById('ptt-trigger').innerText = "ЗАЖМИ И ГОВОРИ &#127897;";
-            document.getElementById('ptt-trigger').onclick = null;
+            const btn = document.getElementById('ptt-trigger');
+            btn.innerHTML = "ЗАЖМИ И ГОВОРИ &#127897;";
+            btn.onclick = null;
             document.getElementById('leave-btn').style.display = "block";
             document.getElementById('net-st').style.color = "var(--green)";
             document.getElementById('net-st').innerText = "● СЕТЬ: ОНЛАЙН";
 
-            const myRef = db.ref('voice_v3').child(myName);
+            const myRef = db.ref('voice_v4').child(myName);
             myRef.set({ speaking: false, color: myColor });
             myRef.onDisconnect().remove();
 
             setupPTT();
             listenForSignals();
-        } catch (e) { alert("Ошибка микрофона!"); }
+        } catch (e) { alert("Ошибка доступа к микрофону!"); }
     }
 
     function setupPTT() {
         const ptt = document.getElementById('ptt-trigger');
         const talk = (on) => {
             if (!myStream) return;
+            // Пробуждаем Audio Context для всех
+            if (window.AudioContext) new AudioContext().resume();
+            
             myStream.getAudioTracks().forEach(t => t.enabled = on);
-            db.ref('voice_v3').child(myName).update({ speaking: on });
+            db.ref('voice_v4').child(myName).update({ speaking: on });
         };
-        ptt.addEventListener('mousedown', () => talk(true));
-        ptt.addEventListener('mouseup', () => talk(false));
-        ptt.addEventListener('touchstart', (e) => { e.preventDefault(); talk(true); });
-        ptt.addEventListener('touchend', () => talk(false));
+        ptt.onmousedown = () => talk(true);
+        ptt.onmouseup = () => talk(false);
+        ptt.ontouchstart = (e) => { e.preventDefault(); talk(true); };
+        ptt.ontouchend = () => talk(false);
     }
 
     function disconnectVoice() {
         if (myStream) myStream.getTracks().forEach(t => t.stop());
-        db.ref('voice_v3').child(myName).remove();
+        db.ref('voice_v4').child(myName).remove();
+        db.ref('signals_v4').child(myName).remove();
         Object.values(connections).forEach(pc => pc.close());
         connections = {};
         myStream = null;
+        document.getElementById('remote-audio-container').innerHTML = "";
         
+        const btn = document.getElementById('ptt-trigger');
+        btn.innerText = "ПОДКЛЮЧИТЬСЯ К ГОЛОСУ";
+        btn.onclick = connectVoiceManually;
         document.getElementById('leave-btn').style.display = "none";
-        document.getElementById('ptt-trigger').innerText = "ПОДКЛЮЧИТЬСЯ К ГОЛОСУ";
-        document.getElementById('ptt-trigger').onclick = connectVoiceManually;
         document.getElementById('net-st').style.color = "var(--red)";
         document.getElementById('net-st').innerText = "● СЕТЬ: ОТКЛЮЧЕНО";
     }
 
     function listenForSignals() {
-        db.ref('voice_v3').on('value', s => {
+        db.ref('voice_v4').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
                 const u = c.val();
@@ -152,7 +126,7 @@
             });
         });
 
-        db.ref('signals_v3').child(myName).on('child_added', async s => {
+        db.ref('signals_v4').child(myName).on('child_added', async s => {
             const d = s.val(); const from = d.from;
             if (!connections[from]) setupWebRTC(from);
             const pc = connections[from];
@@ -175,8 +149,18 @@
     }
 
     function setupWebRTC(target) {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+        // Расширенный список STUN серверов для обхода любых блокировок
+        const config = { 
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun.services.mozilla.com' },
+                { urls: 'stun:stun.stunprotocol.org:3478' }
+            ] 
+        };
+        const pc = new RTCPeerConnection(config);
         connections[target] = pc;
+        
         if (myStream) myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
         
         pc.onicecandidate = e => {
@@ -186,9 +170,18 @@
         };
 
         pc.ontrack = e => {
-            const a = new Audio(); a.srcObject = e.streams[0];
-            if (a.setSinkId) a.setSinkId(selectedSpk);
-            a.play().catch(() => console.log("User must click to hear"));
+            // Создаем настоящий элемент аудио в DOM
+            let audioId = 'audio-' + target.replace(/\s/g, '');
+            let audioEl = document.getElementById(audioId);
+            if (!audioEl) {
+                audioEl = document.createElement('audio');
+                audioEl.id = audioId;
+                audioEl.autoplay = true;
+                document.getElementById('remote-audio-container').appendChild(audioEl);
+            }
+            audioEl.srcObject = e.streams[0];
+            if (audioEl.setSinkId) audioEl.setSinkId(selectedSpk);
+            audioEl.play().catch(() => console.log("Play blocked by browser"));
         };
 
         if (myName < target) {
@@ -200,7 +193,7 @@
         }
     }
 
-    function sendSignal(to, data) { db.ref('signals_v3').child(to).push({ ...data, from: myName }); }
+    function sendSignal(to, data) { db.ref('signals_v4').child(to).push({ ...data, from: myName }); }
 
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
