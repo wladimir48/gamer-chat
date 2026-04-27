@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v41.0 - Voice Boost</title>
+    <title>GamerChat v42.0 - Custom Engine</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -39,9 +39,9 @@
 
 <div id="modal">
     <div class="m-content">
-        <h3>Устройства</h3>
-        <label>Ник:</label> <input type="text" id="set-nick">
-        <label>Цвет:</label> <div class="color-p" id="color-picker"></div>
+        <h3 style="margin:0">Настройки</h3>
+        <label>Твой ник:</label> <input type="text" id="set-nick">
+        <label>Цвет аватарки:</label> <div class="color-p" id="color-picker"></div>
         <label>Микрофон:</label> <select id="mic-list"></select>
         <label>Динамики:</label> <select id="speaker-list"></select>
         <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Применить</button>
@@ -53,7 +53,7 @@
     <div class="cat">Текстовые каналы</div>
     <div style="padding: 8px 15px; color:#949ba4">&#35; общее-семейное</div>
     <div class="cat">Голосовая рация</div>
-    <div id="net-st" style="padding: 8px 15px; color:var(--red); font-size: 10px; font-weight:bold">● СЕТЬ: ОТКЛЮЧЕНО</div>
+    <div id="net-st" style="padding: 8px 15px; color:var(--red); font-size: 10px; font-weight:bold">● СИСТЕМА: ВЫКЛЮЧЕНА</div>
     <div id="v-users" class="v-list"></div>
 </div>
 
@@ -61,10 +61,10 @@
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
     <div class="radio-box">
-        <button id="ptt-trigger" class="ptt-btn" onclick="connectVoice()">ПОДКЛЮЧИТЬСЯ К ГОЛОСУ</button>
-        <button id="leave-btn" class="leave-btn" onclick="disconnectVoice()">ВЫЙТИ ИЗ КАНАЛА</button>
+        <button id="ptt-trigger" class="ptt-btn" onclick="activateEngine()">ЗАПУСТИТЬ ГОЛОСОВОЙ ДВИЖОК</button>
+        <button id="leave-btn" class="leave-btn" onclick="stopEngine()">ОТКЛЮЧИТЬСЯ</button>
     </div>
-    <div style="padding:15px 20px; background: var(--bg);"><input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:12px; border-radius:8px; color:white; outline:none;" placeholder="Написать в чат..." autocomplete="off"></div>
+    <div style="padding:15px 20px; background: var(--bg);"><input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Написать..." autocomplete="off"></div>
 </div>
 
 <script>
@@ -91,7 +91,8 @@
     let myStream = null;
     let connections = {};
 
-    async function connectVoice() {
+    // --- АКТИВАЦИЯ ДВИЖКА ---
+    async function activateEngine() {
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
             myStream.getAudioTracks().forEach(t => t.enabled = false);
@@ -101,14 +102,16 @@
             btn.onclick = null;
             document.getElementById('leave-btn').style.display = "block";
             document.getElementById('net-st').style.color = "var(--green)";
-            document.getElementById('net-st').innerText = "● СЕТЬ: ОНЛАЙН";
+            document.getElementById('net-st').innerText = "● СИСТЕМА: АКТИВНА";
 
-            db.ref('voice_v6').child(myName).set({ speaking: false, color: myColor });
-            db.ref('voice_v6').child(myName).onDisconnect().remove();
+            // Регистрируемся в Firebase
+            const myRef = db.ref('engine_v1').child(myName);
+            myRef.set({ speaking: false, color: myColor, ts: Date.now() });
+            myRef.onDisconnect().remove();
 
             setupPTT();
-            listenForSignals();
-        } catch (e) { alert("Ошибка микрофона!"); }
+            startSignaling();
+        } catch (e) { alert("Двигатель не запущен: нет доступа к микрофону"); }
     }
 
     function setupPTT() {
@@ -116,75 +119,83 @@
         const talk = (on) => {
             if (!myStream) return;
             myStream.getAudioTracks().forEach(t => t.enabled = on);
-            db.ref('voice_v6').child(myName).update({ speaking: on });
+            db.ref('engine_v1').child(myName).update({ speaking: on });
         };
         ptt.onmousedown = () => talk(true); ptt.onmouseup = () => talk(false);
         ptt.ontouchstart = (e) => { e.preventDefault(); talk(true); }; ptt.ontouchend = () => talk(false);
     }
 
-    function disconnectVoice() {
+    function stopEngine() {
         if (myStream) myStream.getTracks().forEach(t => t.stop());
-        db.ref('voice_v6').child(myName).remove();
+        db.ref('engine_v1').child(myName).remove();
         Object.values(connections).forEach(pc => pc.close());
         connections = {}; myStream = null;
         document.getElementById('remote-audios').innerHTML = "";
+        
         const btn = document.getElementById('ptt-trigger');
-        btn.innerText = "ПОДКЛЮЧИТЬСЯ К ГОЛОСУ"; btn.onclick = connectVoice;
+        btn.innerText = "ЗАПУСТИТЬ ГОЛОСОВОЙ ДВИЖОК"; btn.onclick = activateEngine;
         document.getElementById('leave-btn').style.display = "none";
         document.getElementById('net-st').style.color = "var(--red)";
-        document.getElementById('net-st').innerText = "● СЕТЬ: ОТКЛЮЧЕНО";
+        document.getElementById('net-st').innerText = "● СИСТЕМА: ВЫКЛЮЧЕНА";
     }
 
-    function listenForSignals() {
-        db.ref('voice_v6').on('value', s => {
+    // --- ЛОГИКА РУКОПОЖАТИЯ (WebRTC) ---
+    function startSignaling() {
+        // Следим за списком в сети
+        db.ref('engine_v1').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
                 const u = c.val();
                 b.innerHTML += `<div class="v-u"><div class="ava ${u.speaking?'speaking':''}" style="background:${u.color || '#5865f2'}">${c.key.charAt(0)}</div><span>${c.key}</span></div>`;
-                if (c.key !== myName && !connections[c.key]) setupWebRTC(c.key);
+                if (c.key !== myName && !connections[c.key]) createPeerConnection(c.key);
             });
         });
 
-        db.ref('signals_v6').child(myName).on('child_added', async s => {
+        // Слушаем входящие сигналы
+        db.ref('engine_signals').child(myName).on('child_added', async s => {
             const d = s.val(); const from = d.from;
-            if (!connections[from]) setupWebRTC(from);
+            if (!connections[from]) createPeerConnection(from);
             const pc = connections[from];
             try {
                 if (d.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
                     const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
-                    sendSignal(from, { type: 'answer', answer: ans });
+                    db.ref('engine_signals').child(from).push({ type: 'answer', answer: ans, from: myName });
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice' && d.ice) {
-                    if (d.ice.candidate) await pc.addIceCandidate(new RTCIceCandidate(d.ice));
+                    await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                 }
-            } catch (e) {}
+            } catch (e) { console.error("Signaling error"); }
             s.ref.remove();
         });
     }
 
-    function setupWebRTC(target) {
+    function createPeerConnection(target) {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] });
         connections[target] = pc;
         if (myStream) myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        pc.onicecandidate = e => { if (e.candidate) sendSignal(target, { type: 'ice', ice: e.candidate }); };
+        
+        pc.onicecandidate = e => {
+            if (e.candidate) db.ref('engine_signals').child(target).push({ type: 'ice', ice: e.candidate, from: myName });
+        };
+
         pc.ontrack = e => {
-            console.log("ЗВУК ПОЛУЧЕН ОТ: " + target);
             let a = document.createElement('audio'); a.autoplay = true; a.srcObject = e.streams[0];
             if (a.setSinkId) a.setSinkId(selectedSpk);
             document.getElementById('remote-audios').appendChild(a);
+            console.log("ЗВУКОВОЙ КАНАЛ ОТКРЫТ С: " + target);
         };
+
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
                 const off = await pc.createOffer(); await pc.setLocalDescription(off);
-                sendSignal(target, { type: 'offer', offer: off });
+                db.ref('engine_signals').child(target).push({ type: 'offer', offer: off, from: myName });
             };
         }
     }
 
-    function sendSignal(to, data) { db.ref('signals_v6').child(to).push({ ...data, from: myName }); }
-
+    // --- ОСТАЛЬНОЕ ---
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
