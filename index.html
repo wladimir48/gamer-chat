@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v37.0 - Full Voice Control</title>
+    <title>GamerChat v38.0 - Stable Voice</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --gold: #f1c40f; --green: #23a559; --red: #ed4245; }
-        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; flex-shrink: 0; }
         .header { padding: 15px; font-weight: bold; border-bottom: 1px solid #1a1b1e; display: flex; justify-content: space-between; align-items: center; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
@@ -22,10 +22,10 @@
         .emoji-bar { padding: 10px 15px; display: flex; gap: 12px; overflow-x: auto; background: rgba(0,0,0,0.2); border-top: 1px solid #222; min-height: 40px; }
         .e-item { cursor: pointer; font-size: 22px; }
         .radio-box { padding: 15px 20px; background: rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 10px; }
-        .ptt-btn { background: var(--accent); color: white; border: none; padding: 18px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
+        .ptt-btn { background: var(--accent); color: white; border: none; padding: 20px; border-radius: 8px; font-weight: bold; cursor: pointer; user-select: none; transition: 0.2s; text-transform: uppercase; width: 100%; font-size: 16px; }
         .ptt-btn:active { background: var(--green); }
-        .leave-btn { background: var(--red); color: white; border: none; padding: 8px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; opacity: 0.8; }
-        .leave-btn:hover { opacity: 1; }
+        .ptt-btn.disabled { background: #4f545c; cursor: not-allowed; }
+        .leave-btn { background: var(--red); color: white; border: none; padding: 10px; border-radius: 5px; font-size: 11px; font-weight: bold; cursor: pointer; display: none; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #444; }
         select, input { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; }
@@ -37,14 +37,16 @@
 <body>
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0">Настройки</h3>
+        <h3 style="margin:0">Устройства</h3>
+        <label style="font-size:12px">Ник:</label>
         <input type="text" id="set-nick">
+        <label style="font-size:12px">Цвет аватарки:</label>
         <div class="color-p" id="color-picker"></div>
-        <label style="font-size:11px">Микрофон:</label>
+        <label style="font-size:12px">Микрофон:</label>
         <select id="mic-list"></select>
-        <label style="font-size:11px">Динамики:</label>
+        <label style="font-size:12px">Динамики:</label>
         <select id="speaker-list"></select>
-        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Применить</button>
+        <button class="ptt-btn" onclick="saveSettings()" style="padding:10px">Сохранить</button>
     </div>
 </div>
 
@@ -53,7 +55,7 @@
     <div class="cat">Текстовые каналы</div>
     <div style="padding: 8px 15px; color:#949ba4">&#35; общее-семейное</div>
     <div class="cat">Голосовая рация</div>
-    <div id="net-st" style="padding: 8px 15px; color:var(--green); font-size: 10px; font-weight:bold">● СЕТЬ: ОНЛАЙН</div>
+    <div id="net-st" style="padding: 8px 15px; color:var(--red); font-size: 10px; font-weight:bold">● СЕТЬ: ОТКЛЮЧЕНО</div>
     <div id="v-users" class="v-list"></div>
 </div>
 
@@ -61,8 +63,8 @@
     <div id="msgs"></div>
     <div class="emoji-bar" id="eb"></div>
     <div class="radio-box">
-        <button id="ptt-trigger" class="ptt-btn">ЗАЖМИ И ГОВОРИ &#127897;</button>
-        <button class="leave-btn" onclick="disconnectVoice()">ОТКЛЮЧИТЬСЯ ОТ ГОЛОСА</button>
+        <button id="ptt-trigger" class="ptt-btn" onclick="connectVoiceManually()">ПОДКЛЮЧИТЬСЯ К ГОЛОСУ</button>
+        <button id="leave-btn" class="leave-btn" onclick="disconnectVoice()">ОТКЛЮЧИТЬСЯ</button>
     </div>
     <div style="padding:15px 20px; background: var(--bg);">
         <input type="text" id="ui" style="width:100%; background:#383a40; border:none; padding:14px; border-radius:8px; color:white; outline:none;" placeholder="Сообщение..." autocomplete="off">
@@ -93,39 +95,55 @@
     let myStream = null;
     let connections = {};
 
-    async function initSystem() {
+    async function connectVoiceManually() {
         try {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
             myStream.getAudioTracks().forEach(t => t.enabled = false);
-            const myRef = db.ref('voice_v2').child(myName);
+            
+            document.getElementById('ptt-trigger').innerText = "ЗАЖМИ И ГОВОРИ &#127897;";
+            document.getElementById('ptt-trigger').onclick = null;
+            document.getElementById('leave-btn').style.display = "block";
+            document.getElementById('net-st').style.color = "var(--green)";
+            document.getElementById('net-st').innerText = "● СЕТЬ: ОНЛАЙН";
+
+            const myRef = db.ref('voice_v3').child(myName);
             myRef.set({ speaking: false, color: myColor });
             myRef.onDisconnect().remove();
+
+            setupPTT();
             listenForSignals();
-        } catch (e) { console.error(e); }
+        } catch (e) { alert("Ошибка микрофона!"); }
     }
 
-    const talk = (on) => {
-        if (!myStream) return;
-        myStream.getAudioTracks().forEach(t => t.enabled = on);
-        db.ref('voice_v2').child(myName).update({ speaking: on });
-    };
-
-    const ptt = document.getElementById('ptt-trigger');
-    ptt.addEventListener('mousedown', () => talk(true));
-    ptt.addEventListener('mouseup', () => talk(false));
-    ptt.addEventListener('touchstart', (e) => { e.preventDefault(); talk(true); });
-    ptt.addEventListener('touchend', () => talk(false));
+    function setupPTT() {
+        const ptt = document.getElementById('ptt-trigger');
+        const talk = (on) => {
+            if (!myStream) return;
+            myStream.getAudioTracks().forEach(t => t.enabled = on);
+            db.ref('voice_v3').child(myName).update({ speaking: on });
+        };
+        ptt.addEventListener('mousedown', () => talk(true));
+        ptt.addEventListener('mouseup', () => talk(false));
+        ptt.addEventListener('touchstart', (e) => { e.preventDefault(); talk(true); });
+        ptt.addEventListener('touchend', () => talk(false));
+    }
 
     function disconnectVoice() {
         if (myStream) myStream.getTracks().forEach(t => t.stop());
-        db.ref('voice_v2').child(myName).remove();
+        db.ref('voice_v3').child(myName).remove();
         Object.values(connections).forEach(pc => pc.close());
         connections = {};
-        location.reload();
+        myStream = null;
+        
+        document.getElementById('leave-btn').style.display = "none";
+        document.getElementById('ptt-trigger').innerText = "ПОДКЛЮЧИТЬСЯ К ГОЛОСУ";
+        document.getElementById('ptt-trigger').onclick = connectVoiceManually;
+        document.getElementById('net-st').style.color = "var(--red)";
+        document.getElementById('net-st').innerText = "● СЕТЬ: ОТКЛЮЧЕНО";
     }
 
     function listenForSignals() {
-        db.ref('voice_v2').on('value', s => {
+        db.ref('voice_v3').on('value', s => {
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
                 const u = c.val();
@@ -134,7 +152,7 @@
             });
         });
 
-        db.ref('signals').child(myName).on('child_added', async s => {
+        db.ref('signals_v3').child(myName).on('child_added', async s => {
             const d = s.val(); const from = d.from;
             if (!connections[from]) setupWebRTC(from);
             const pc = connections[from];
@@ -147,12 +165,11 @@
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice' && d.ice) {
-                    // ФИКС ОШИБКИ: Проверяем sdpMid И sdpMLineIndex
                     if (d.ice.sdpMid !== null || d.ice.sdpMLineIndex !== null) {
                         await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                     }
                 }
-            } catch (e) { console.log("Signal skipped"); }
+            } catch (e) {}
             s.ref.remove();
         });
     }
@@ -160,18 +177,20 @@
     function setupWebRTC(target) {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
-        myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
+        if (myStream) myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
+        
         pc.onicecandidate = e => {
-            // ФИКС ОШИБКИ: Не отправляем пустые кандидаты
             if (e.candidate && (e.candidate.sdpMid !== null || e.candidate.sdpMLineIndex !== null)) {
                 sendSignal(target, { type: 'ice', ice: e.candidate });
             }
         };
+
         pc.ontrack = e => {
             const a = new Audio(); a.srcObject = e.streams[0];
             if (a.setSinkId) a.setSinkId(selectedSpk);
-            a.play().catch(()=>{});
+            a.play().catch(() => console.log("User must click to hear"));
         };
+
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
                 const off = await pc.createOffer();
@@ -181,7 +200,7 @@
         }
     }
 
-    function sendSignal(to, data) { db.ref('signals').child(to).push({ ...data, from: myName }); }
+    function sendSignal(to, data) { db.ref('signals_v3').child(to).push({ ...data, from: myName }); }
 
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
@@ -211,7 +230,7 @@
         localStorage.setItem('chat_color', myColor);
         localStorage.setItem('chat_mic', document.getElementById('mic-list').value);
         localStorage.setItem('chat_spk', document.getElementById('speaker-list').value);
-        location.reload();
+        document.getElementById('modal').style.display = 'none';
     };
 
     const emojis = ["&#128512;","&#128514;","&#128522;","&#128525;","&#128526;","&#129300;","&#128077;","&#128293;","&#10024;","&#127881;","&#128075;","&#128557;","&#128561;","&#128545;","&#128128;","&#128169;","&#10084;","&#9989;","&#10060;","&#127918;"];
@@ -234,8 +253,6 @@
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         if (d.u !== myName) icqSound.play().catch(()=>{});
     });
-
-    initSystem();
 </script>
 </body>
 </html>
