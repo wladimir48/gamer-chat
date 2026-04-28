@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerChat v51.0 - Unity Final</title>
+    <title>GamerChat v51.0</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
@@ -12,18 +12,17 @@
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
-        .v-u-card { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 1px solid transparent; transition: 0.2s; }
+        .v-u-card { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 1px solid transparent; }
         .speaking { border-color: var(--green); box-shadow: 0 0 10px rgba(35, 165, 89, 0.3); }
         .vol-bar { width: 100%; height: 4px; background: #111; border-radius: 2px; margin-top: 5px; overflow: hidden; }
         .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.1s; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; border-bottom: 1px solid #2b2d31; }
-        .msg { margin-bottom: 10px; word-break: break-word; line-height: 1.4; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; }
+        .msg { margin-bottom: 10px; }
         .radio-box { padding: 15px; background: rgba(0,0,0,0.3); }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg); padding: 25px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 15px; }
-        input, select { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; outline: none; }
-        #log-box { font-size: 10px; color: #72767d; padding: 5px 15px; position: absolute; bottom: 70px; }
+        input, select { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; }
     </style>
 </head>
 <body onclick="if(window.AudioContext) new AudioContext().resume()">
@@ -32,17 +31,17 @@
 
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0">Настройки</h3>
+        <h3>Настройки</h3>
         <input type="text" id="set-nick" placeholder="Твой ник">
         <label>Микрофон:</label> <select id="mic-list"></select>
         <label>Динамики:</label> <select id="speaker-list"></select>
-        <button class="btn" onclick="saveSettings()">Применить</button>
+        <button class="btn" onclick="saveSettings()">OK</button>
     </div>
 </div>
 
 <div class="sidebar">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111; display:flex; justify-content:space-between; align-items:center">
-        GamerChat <span style="cursor:pointer; font-size:20px" onclick="openSettings()">⚙️</span>
+    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111; display:flex; justify-content:space-between">
+        GamerChat <span style="cursor:pointer" onclick="openSettings()">⚙️</span>
     </div>
     <div class="cat">Голосовой канал</div>
     <div id="v-users"></div>
@@ -50,16 +49,15 @@
 
 <div class="main">
     <div id="msgs"></div>
-    <div id="log-box">Статус: Ожидание...</div>
     <div class="radio-box">
         <button id="btn-toggle" class="btn" onclick="joinVoice()">Войти в канал</button>
-        <button id="btn-leave" class="btn" style="background:var(--red); display:none" onclick="location.reload()">Выйти из канала</button>
+        <button id="btn-leave" class="btn" style="background:var(--red); display:none" onclick="location.reload()">Выйти</button>
     </div>
-    <div style="padding:15px"><input type="text" id="ui" style="width:100%; box-sizing: border-box;" placeholder="Написать сообщение..." autocomplete="off"></div>
+    <div style="padding:15px"><input type="text" id="ui" style="width:100%; box-sizing:border-box" placeholder="Сообщение..." autocomplete="off"></div>
 </div>
 
 <script>
-    // ЗАМЕНИ . НА ТОЧКУ В ЭТОМ БЛОКЕ
+    // ТУТ ЗАМЕНИ . НА ТОЧКИ
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
         authDomain: "gamerchat-7a857.firebaseapp.com",
@@ -73,14 +71,12 @@
     firebase.initializeApp(cfg);
     const db = firebase.database();
     
-    let myName = localStorage.getItem('chat_nick') || ("Игрок_" + Math.floor(Math.random()*999));
+    let myName = localStorage.getItem('chat_nick') || "Геймер";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let selectedSpk = localStorage.getItem('chat_spk') || 'default';
     let myStream = null;
     let connections = {};
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
-
-    function writeLog(t) { document.getElementById('log-box').innerText = "Статус: " + t; }
 
     window.onload = () => {
         const ui = document.getElementById('ui');
@@ -90,137 +86,103 @@
                 ui.value = "";
             }
         };
-
-        db.ref('global_chat').limitToLast(30).on('child_added', s => {
+        db.ref('global_chat').limitToLast(20).on('child_added', s => {
             const d = s.val();
             const m = document.createElement('div'); m.className = 'msg';
-            m.innerHTML = `<b style="color:var(--accent)">${d.u}:</b> ${d.t}`;
-            const msgs = document.getElementById('msgs');
-            msgs.appendChild(m);
-            msgs.scrollTop = msgs.scrollHeight;
+            m.innerHTML = `<b>${d.u}:</b> ${d.t}`;
+            document.getElementById('msgs').appendChild(m);
+            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         });
     };
 
     async function joinVoice() {
         try {
-            writeLog("Запрашиваю микрофон...");
-            myStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { deviceId: selectedMic, echoCancellation: true, noiseSuppression: true } 
-            });
-            
+            myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
             document.getElementById('btn-toggle').style.display = 'none';
             document.getElementById('btn-leave').style.display = 'block';
-
             db.ref('voice_v12').child(myName).set({ id: myPeerId });
             db.ref('voice_v12').child(myName).onDisconnect().remove();
-
             visualize(myStream, myName);
             startEngine();
-            writeLog("Вы в голосовом канале");
-        } catch (e) { 
-            alert("Ошибка доступа к микрофону! Убедитесь, что сайт открыт через HTTPS."); 
-            writeLog("Ошибка: " + e.message);
-        }
+        } catch (e) { alert("Ошибка микрофона!"); }
     }
 
     function startEngine() {
         db.ref('voice_v12').on('value', s => {
-            const b = document.getElementById('v-users');
-            b.innerHTML = "";
+            const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
-                const name = c.key;
-                b.innerHTML += `<div class="v-u-card" id="card-${name}"><div>${name}</div><div class="vol-bar"><div class="vol-fill" id="vol-${name}"></div></div></div>`;
-                if (name !== myName && !connections[name]) setupRTC(name, c.val().id);
+                const n = c.key;
+                b.innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
+                if (n !== myName && !connections[n]) setupRTC(n, c.val().id);
             });
         });
-
         db.ref('signals_v12').child(myName).on('child_added', async s => {
-            const d = s.val(); 
-            if (!connections[d.from]) setupRTC(d.from, d.id);
+            const d = s.val(); if (!connections[d.from]) setupRTC(d.from, d.id);
             const pc = connections[d.from];
             try {
                 if (d.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                    const ans = await pc.createAnswer();
-                    await pc.setLocalDescription(ans);
+                    const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
                     db.ref('signals_v12').child(d.from).push({ type: 'answer', answer: ans, from: myName });
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice' && d.ice) {
                     await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {}
             s.ref.remove();
         });
     }
 
     function setupRTC(target, id) {
-        // Здесь точки оставлены специально, чтобы RTC не ломался
+        // ТУТ ТОЧКИ УЖЕ ЕСТЬ, НИЧЕГО НЕ ТРОГАЙ:
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:://google.com' }] });
         connections[target] = pc;
-        
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        
-        pc.onicecandidate = e => { 
-            if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); 
-        };
-        
+        pc.onicecandidate = e => { if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); };
         pc.ontrack = e => {
-            const a = document.createElement('audio'); 
-            a.autoplay = true; 
-            a.srcObject = e.streams[0]; 
+            const a = document.createElement('audio'); a.autoplay = true; a.srcObject = e.streams[0];
             if (a.setSinkId) a.setSinkId(selectedSpk);
             document.getElementById('audio-storage').appendChild(a);
-            
-            a.play().catch(() => writeLog("Нажми на экран для звука"));
             visualize(e.streams[0], target);
         };
-
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
-                const off = await pc.createOffer();
-                await pc.setLocalDescription(off);
+                const off = await pc.createOffer(); await pc.setLocalDescription(off);
                 db.ref('signals_v12').child(target).push({ type: 'offer', offer: off, from: myName });
             };
         }
     }
 
     function visualize(stream, name) {
-        if (!stream) return;
-        try {
-            const ctx = new (window.AudioContext || window.webkitAudioContext)();
-            const src = ctx.createMediaStreamSource(stream);
-            const anz = ctx.createAnalyser(); 
-            src.connect(anz);
-            const dat = new Uint8Array(anz.frequencyBinCount);
-
-            function loop() {
-                const bar = document.getElementById('vol-' + name);
-                if (!bar) return;
-                anz.getByteFrequencyData(dat);
-                let v = dat.reduce((a,b) => a+b) / dat.length;
-                bar.style.width = Math.min(100, v * 5) + '%';
-                
-                const card = document.getElementById('card-' + name);
-                if (card) {
-                    if (v > 5) card.classList.add('speaking');
-                    else card.classList.remove('speaking');
-                }
-                requestAnimationFrame(loop);
+        if(!stream) return;
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(stream);
+        const anz = ctx.createAnalyser(); src.connect(anz);
+        const dat = new Uint8Array(anz.frequencyBinCount);
+        function loop() {
+            const bar = document.getElementById('vol-' + name);
+            const card = document.getElementById('card-' + name);
+            if (!bar) return;
+            anz.getByteFrequencyData(dat);
+            let v = dat.reduce((a,b) => a+b) / dat.length;
+            bar.style.width = Math.min(100, v * 5) + '%';
+            if (card) {
+                if (v > 5) card.classList.add('speaking');
+                else card.classList.remove('speaking');
             }
-            loop();
-        } catch (e) { console.error("Vis error", e); }
+            requestAnimationFrame(loop);
+        }
+        loop();
     }
 
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
-        document.getElementById('set-nick').value = myName;
         navigator.mediaDevices.enumerateDevices().then(devs => {
-            const mS = document.getElementById('mic-list'); 
-            const sS = document.getElementById('speaker-list');
+            const mS = document.getElementById('mic-list'); const sS = document.getElementById('speaker-list');
             mS.innerHTML = ""; sS.innerHTML = "";
             devs.forEach(d => {
-                const opt = `<option value="${d.deviceId}" ${d.deviceId===(d.kind==='audioinput'?selectedMic:selectedSpk)?'selected':''}>${d.label || 'Устройство'}</option>`;
+                const opt = `<option value="${d.deviceId}">${d.label || 'Устройство'}</option>`;
                 if (d.kind === 'audioinput') mS.innerHTML += opt;
                 if (d.kind === 'audiooutput') sS.innerHTML += opt;
             });
