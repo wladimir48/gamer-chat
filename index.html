@@ -57,7 +57,6 @@
 </div>
 
 <script>
-    // ТУТ ЗАМЕНИ . НА ТОЧКИ
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
         authDomain: "gamerchat-7a857.firebaseapp.com",
@@ -76,6 +75,7 @@
     let selectedSpk = localStorage.getItem('chat_spk') || 'default';
     let myStream = null;
     let connections = {};
+    let gCtx = null; // Глобальный аудио-контекст
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
     window.onload = () => {
@@ -112,7 +112,9 @@
             const b = document.getElementById('v-users'); b.innerHTML = "";
             s.forEach(c => {
                 const n = c.key;
-                b.innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
+                if (!document.getElementById('card-'+n)) {
+                    b.innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
+                }
                 if (n !== myName && !connections[n]) setupRTC(n, c.val().id);
             });
         });
@@ -135,8 +137,7 @@
     }
 
     function setupRTC(target, id) {
-        // ТУТ ТОЧКИ УЖЕ ЕСТЬ, НИЧЕГО НЕ ТРОГАЙ:
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:://google.com' }] });
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
         pc.onicecandidate = e => { if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); };
@@ -156,9 +157,9 @@
 
     function visualize(stream, name) {
         if(!stream) return;
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const src = ctx.createMediaStreamSource(stream);
-        const anz = ctx.createAnalyser(); src.connect(anz);
+        if(!gCtx) gCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = gCtx.createMediaStreamSource(stream);
+        const anz = gCtx.createAnalyser(); src.connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
         function loop() {
             const bar = document.getElementById('vol-' + name);
