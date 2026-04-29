@@ -14,46 +14,41 @@
         .col-users { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; padding: 10px; border-left: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
         .srv-icon { width: 48px; height: 48px; background: var(--bg-main); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 20px; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
-        .v-u-card { background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; margin: 5px 10px; border: 1px solid transparent; transition: 0.3s; }
-        .speaking { border-color: var(--green); box-shadow: 0 0 10px var(--green); }
-        .vol-bar { width: 100%; height: 3px; background: #111; border-radius: 2px; margin-top: 5px; overflow: hidden; }
-        .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.1s; }
+        .msg-box { margin-bottom: 10px; word-break: break-word; }
         .user-panel { background: #232428; padding: 8px; display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
+        .p-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
         .u-avatar { width: 32px; height: 32px; background: #4e5058; border-radius: 50%; position: relative; }
         .u-status { width: 10px; height: 10px; border-radius: 50%; position: absolute; bottom: 0; right: 0; border: 2px solid #232428; }
-        .input-area { padding: 15px; position: relative; }
-        .input-wrap { background: #383a40; border-radius: 8px; display: flex; align-items: center; padding: 0 15px; }
-        #ui { background: transparent; border: none; color: white; padding: 12px 0; width: 100%; outline: none; }
+        .status-online { background: var(--green); }
+        .status-offline { background: #80848e; }
+        .input-wrap { background: #383a40; border-radius: 8px; display: flex; align-items: center; padding: 15px; margin: 15px; }
+        #ui { background: transparent; border: none; color: white; width: 100%; outline: none; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 15px; }
         .mic-test-bar { background: #1e1f22; height: 10px; border-radius: 5px; overflow: hidden; }
         #mic-fill { height: 100%; width: 0%; background: var(--green); transition: 0.05s; }
-        .em-panel { display: none; position: absolute; bottom: 70px; right: 20px; background: #2b2d31; padding: 15px; border-radius: 12px; grid-template-columns: repeat(5, 1fr); gap: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 100; }
+        .em-panel { display: none; position: absolute; bottom: 70px; right: 20px; background: #2b2d31; padding: 15px; border-radius: 12px; grid-template-columns: repeat(5, 1fr); gap: 10px; z-index: 100; }
         .em-panel.active { display: grid; }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; }
     </style>
 </head>
-<body onclick="if(window.AudioContext && !gCtx) initAudio()">
-
+<body>
 <div id="audio-storage" style="display:none"></div>
-
 <div id="modal">
     <div class="m-content">
         <h3>Настройки</h3>
         <input type="text" id="set-nick" placeholder="Твой ник">
         <label>Индикатор микрофона:</label>
         <div class="mic-test-bar"><div id="mic-fill"></div></div>
-        <label>Микрофон:</label> <select id="mic-list"></select>
+        <label>Выбор микрофона:</label> <select id="mic-list" style="background:#1e1f22; color:white; padding:5px;"></select>
         <button class="btn" onclick="saveSettings()">СОХРАНИТЬ</button>
         <button class="btn" style="background:#4e5058" onclick="closeSettings()">ОТМЕНА</button>
     </div>
 </div>
-
 <div class="col-servers"><div class="srv-icon">G</div></div>
 <div class="col-channels">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111">GamerChat v51</div>
-    <div class="cat">Голосовой канал</div>
-    <div id="v-users" style="flex:1; overflow-y:auto"></div>
+    <div style="flex:1"></div>
     <div style="padding: 10px;">
         <button id="btn-toggle" class="btn" onclick="joinVoice()">Войти в голос</button>
         <button id="btn-leave" class="btn" style="background:var(--red); display:none" onclick="leaveVoice()">Выйти</button>
@@ -66,23 +61,18 @@
         <div style="cursor:pointer; font-size: 18px;" onclick="openSettings()">⚙️</div>
     </div>
 </div>
-
 <div class="col-chat">
     <div id="msgs"></div>
-    <div class="input-area">
+    <div class="input-wrap">
         <div class="em-panel" id="em-box"></div>
-        <div class="input-wrap">
-            <input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off">
-            <span style="cursor:pointer" onclick="document.getElementById('em-box').classList.toggle('active')">😊</span>
-        </div>
+        <input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off">
+        <span style="cursor:pointer" onclick="document.getElementById('em-box').classList.toggle('active')">😊</span>
     </div>
 </div>
-
 <div class="col-users">
     <div style="color: #949ba4; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px;">В сети</div>
     <div id="right-user-list"></div>
 </div>
-
 <script>
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
@@ -96,13 +86,8 @@
     firebase.initializeApp(cfg); const db = firebase.database();
     let myName = localStorage.getItem('chat_nick') || "Геймер";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
-    let myStatus = 'online', myStream = null, connections = {}, gCtx = null, testStream = null;
-    const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
-    
-    // Заглушка для звука (чтобы не было 404)
+    let myStatus = 'online', gCtx = null, testStream = null;
     const icqSound = new Audio('icq.mp3');
-    icqSound.addEventListener('error', () => console.log("Файл icq.mp3 не найден, звук отключен."));
-
     document.getElementById('display-nick').innerText = myName;
 
     // Смайлы
@@ -114,8 +99,6 @@
         emBox.appendChild(s);
     });
 
-    function initAudio() { gCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-
     window.onload = () => {
         const ui = document.getElementById('ui');
         ui.onkeydown = (e) => { if (e.key === 'Enter' && ui.value.trim()) { db.ref('global_chat').push().set({ u: myName, t: ui.value }); ui.value = ""; } };
@@ -124,20 +107,23 @@
             document.getElementById('msgs').appendChild(m); document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
             if (d.u !== myName && myStatus !== 'offline') icqSound.play().catch(()=>{});
         });
-        db.ref('presence').child(myName).set(myStatus);
-        db.ref('presence').child(myName).onDisconnect().remove();
         db.ref('presence').on('value', s => {
             const list = document.getElementById('right-user-list'); list.innerHTML = "";
             s.forEach(c => { list.innerHTML += `<div style="padding:5px; font-size:14px">● ${c.key} (${c.val()})</div>`; });
         });
+        db.ref('presence').child(myName).set(myStatus);
+        db.ref('presence').child(myName).onDisconnect().remove();
     };
 
     async function openSettings() {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
         
+        // Магия оживления индикатора
+        if (!gCtx) gCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (gCtx.state === 'suspended') await gCtx.resume();
+
         try {
-            // Сначала получаем список устройств
             const devs = await navigator.mediaDevices.enumerateDevices();
             const mS = document.getElementById('mic-list'); mS.innerHTML = "";
             devs.forEach(d => { if(d.kind==='audioinput') {
@@ -146,89 +132,39 @@
                 mS.appendChild(opt);
             }});
 
-            // Запускаем индикатор
             testStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
-            if(!gCtx) initAudio();
             const src = gCtx.createMediaStreamSource(testStream);
             const anz = gCtx.createAnalyser(); src.connect(anz);
             const dat = new Uint8Array(anz.frequencyBinCount);
+            
             function draw() {
-                if (document.getElementById('modal').style.display === 'none') return;
+                if (document.getElementById('modal').style.display === 'none') {
+                    testStream.getTracks().forEach(t => t.stop());
+                    return;
+                }
                 anz.getByteFrequencyData(dat);
                 let v = dat.reduce((a,b)=>a+b)/dat.length;
-                document.getElementById('mic-fill').style.width = Math.min(100, v * 5) + "%";
+                document.getElementById('mic-fill').style.width = Math.min(100, v * 8) + "%"; // Увеличил чувствительность
                 requestAnimationFrame(draw);
             } draw();
-        } catch (e) { console.error("Ошибка теста:", e); }
+        } catch (e) { console.error(e); }
     }
 
-    function closeSettings() { 
-        if(testStream) testStream.getTracks().forEach(t=>t.stop()); 
-        document.getElementById('modal').style.display = 'none'; 
-    }
-
+    function closeSettings() { document.getElementById('modal').style.display = 'none'; }
     function saveSettings() {
         myName = document.getElementById('set-nick').value;
         selectedMic = document.getElementById('mic-list').value;
         localStorage.setItem('chat_nick', myName);
         localStorage.setItem('chat_mic', selectedMic);
         document.getElementById('display-nick').innerText = myName;
+        closeSettings();
+    }
+
+    function toggleStatus() {
+        myStatus = (myStatus === 'online') ? 'offline' : 'online';
+        document.getElementById('my-status-dot').className = 'u-status ' + (myStatus === 'online' ? 'status-online' : 'status-offline');
         db.ref('presence').child(myName).set(myStatus);
-        closeSettings(); // ЗАКРЫВАЕМ БЕЗ ПЕРЕЗАГРУЗКИ
     }
-
-    async function joinVoice() {
-        myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
-        document.getElementById('btn-toggle').style.display = 'none'; document.getElementById('btn-leave').style.display = 'block';
-        db.ref('voice_v12').child(myName).set({ id: myPeerId });
-        visualize(myStream, myName); startEngine();
-    }
-    
-    function leaveVoice() { 
-        if(myStream) myStream.getTracks().forEach(t=>t.stop()); 
-        db.ref('voice_v12').child(myName).remove(); 
-        document.getElementById('btn-toggle').style.display = 'none'; // Починим кнопки
-        location.reload(); // Для WebRTC перезагрузка пока надежнее
-    }
-
-    function startEngine() {
-        db.ref('voice_v12').on('value', s => {
-            s.forEach(c => {
-                const n = c.key;
-                if (!document.getElementById('card-' + n)) { document.getElementById('v-users').innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`; }
-                if (n !== myName && !connections[n]) setupRTC(n, c.val().id);
-            });
-        });
-        db.ref('signals_v12').child(myName).on('child_added', async s => {
-            const d = s.val(); if (!connections[d.from]) setupRTC(d.from, d.id);
-            const pc = connections[d.from];
-            if (d.type === 'offer') { await pc.setRemoteDescription(new RTCSessionDescription(d.offer)); const ans = await pc.createAnswer(); await pc.setLocalDescription(ans); db.ref('signals_v12').child(d.from).push({ type: 'answer', answer: ans, from: myName }); }
-            else if (d.type === 'answer') await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
-            else if (d.type === 'ice' && d.ice) await pc.addIceCandidate(new RTCIceCandidate(d.ice));
-            s.ref.remove();
-        });
-    }
-
-    function setupRTC(target, id) {
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-        connections[target] = pc; myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        pc.onicecandidate = e => { if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); };
-        pc.ontrack = e => { const a = document.createElement('audio'); a.autoplay = true; a.srcObject = e.streams[0]; document.getElementById('audio-storage').appendChild(a); visualize(e.streams[0], target); };
-        if (myName < target) { pc.onnegotiationneeded = async () => { const off = await pc.createOffer(); await pc.setLocalDescription(off); db.ref('signals_v12').child(target).push({ type: 'offer', offer: off, from: myName }); }; }
-    }
-
-    function visualize(stream, name) {
-        if (!gCtx) initAudio(); const src = gCtx.createMediaStreamSource(stream), anz = gCtx.createAnalyser(); src.connect(anz);
-        const dat = new Uint8Array(anz.frequencyBinCount);
-        function loop() {
-            const bar = document.getElementById('vol-' + name); const card = document.getElementById('card-' + name); if (!bar) return;
-            anz.getByteFrequencyData(dat); let v = dat.reduce((a,b)=>a+b)/dat.length;
-            bar.style.width = Math.min(100, v * 5) + '%';
-            if (card) { if (v > 5) card.classList.add('speaking'); else card.classList.remove('speaking'); }
-            requestAnimationFrame(loop);
-        } loop();
-    }
-    function toggleStatus() { myStatus = (myStatus === 'online') ? 'offline' : 'online'; document.getElementById('my-status-dot').className = 'u-status ' + (myStatus === 'online' ? 'status-online' : 'status-offline'); db.ref('presence').child(myName).set(myStatus); }
 </script>
 </body>
 </html>
