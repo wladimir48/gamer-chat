@@ -13,32 +13,35 @@
         .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; position: relative; min-width: 0; }
         .col-users { width: 200px; background: var(--bg-sidebar); padding: 10px; border-left: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
         .srv-icon { width: 48px; height: 48px; background: var(--bg-main); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 20px; font-weight: bold; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
-        .v-u-card { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 1px solid transparent; }
-        .speaking { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); }
-        .vol-bar { width: 100%; height: 5px; background: #111; border-radius: 3px; margin-top: 5px; overflow: hidden; }
-        .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.1s; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; font-size: 15px; }
+        .v-u-card { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 2px solid transparent; transition: 0.2s; }
+        .speaking { border-color: var(--green) !important; }
+        .vol-bar { width: 100%; height: 6px; background: #111; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.05s; }
         .user-panel { background: #232428; padding: 10px; display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 15px; }
-        #mic-fill-test { height: 10px; background: var(--green); width: 0%; border-radius: 5px; transition: 0.05s; }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
         .input-wrap { background: #383a40; border-radius: 8px; padding: 12px; margin: 15px; }
         #ui { background: transparent; border: none; color: white; width: 100%; outline: none; }
     </style>
 </head>
-<body onclick="if(!gCtx) initAudio()">
+<body onclick="initAudio()">
+
 <div id="audio-storage" style="display:none"></div>
+
 <div id="modal">
     <div class="m-content">
         <h3>Настройки</h3>
         <label>Ник:</label><input type="text" id="set-nick" style="background:#1e1f22; color:white; border:none; padding:10px; border-radius:6px;">
-        <label>Тест микрофона:</label><div style="background:#111; height:10px; border-radius:5px;"><div id="mic-fill-test"></div></div>
+        <label>Проверка микрофона:</label>
+        <div style="background:#111; height:10px; border-radius:5px;"><div id="mic-test-bar" style="height:100%; width:0%; background:var(--green); transition:0.05s;"></div></div>
         <label>Микрофон:</label><select id="mic-list" style="background:#1e1f22; color:white; padding:8px; border:none;"></select>
         <button class="btn" onclick="saveSettings()">СОХРАНИТЬ</button>
         <button class="btn" style="background:#4e5058" onclick="document.getElementById('modal').style.display='none'">ЗАКРЫТЬ</button>
     </div>
 </div>
+
 <div class="col-servers"><div class="srv-icon">G</div></div>
 <div class="col-channels">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111">GamerChat v51</div>
@@ -78,8 +81,11 @@
     const db = firebase.database();
 
     function initAudio() { 
-        gCtx = new (window.AudioContext || window.webkitAudioContext)(); 
-        console.log("Звук активирован");
+        if (!gCtx) {
+            gCtx = new (window.AudioContext || window.webkitAudioContext)();
+            console.log("Звук активирован");
+        }
+        if (gCtx.state === 'suspended') gCtx.resume();
     }
 
     window.onload = () => {
@@ -98,20 +104,26 @@
         db.ref('presence').child(myName).onDisconnect().remove();
     };
 
+    // НАСТРОЙКИ С ЖИВЫМ ТЕСТОМ
     async function openSettings() {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
+        initAudio();
         const devs = await navigator.mediaDevices.enumerateDevices();
         const list = document.getElementById('mic-list'); list.innerHTML = "";
         devs.forEach(d => { if(d.kind==='audioinput') list.innerHTML += `<option value="${d.deviceId}">${d.label || 'Микрофон'}</option>`; });
         
-        const tStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
-        const anz = gCtx.createAnalyser(); gCtx.createMediaStreamSource(tStream).connect(anz);
+        const tStream = await navigator.mediaDevices.getUserMedia({ audio: selectedMic === 'default' ? true : { deviceId: selectedMic } });
+        const anz = gCtx.createAnalyser(); anz.fftSize = 256;
+        gCtx.createMediaStreamSource(tStream).connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
+        
         function loop() {
             if (document.getElementById('modal').style.display === 'none') { tStream.getTracks().forEach(t=>t.stop()); return; }
             anz.getByteFrequencyData(dat);
-            document.getElementById('mic-fill-test').style.width = (dat.reduce((a,b)=>a+b)/dat.length * 4) + "%";
+            let sum = 0; for(let i=0; i<dat.length; i++) sum += dat[i];
+            let v = sum / dat.length;
+            document.getElementById('mic-test-bar').style.width = Math.min(100, v * 10) + "%";
             requestAnimationFrame(loop);
         } loop();
     }
@@ -124,30 +136,33 @@
 
     async function joinVoice() {
         try {
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: selectedMic } });
+            initAudio();
+            myStream = await navigator.mediaDevices.getUserMedia({ audio: selectedMic === 'default' ? true : { deviceId: selectedMic } });
             document.getElementById('btn-toggle').style.display = 'none';
             document.getElementById('btn-leave').style.display = 'block';
             db.ref('voice_v12').child(myName).set({ id: myPeerId });
             db.ref('voice_v12').child(myName).onDisconnect().remove();
             
-            // СОЗДАЕМ КАРТОЧКУ СРАЗУ ДЛЯ СЕБЯ
-            renderUserCard(myName);
+            // СРАЗУ РИСУЕМ СВОЮ КАРТОЧКУ
+            renderCard(myName);
             visualize(myStream, myName);
             startEngine();
-        } catch (e) { alert("Разреши доступ к микрофону!"); }
+        } catch (e) { alert("Ошибка микрофона! Разреши доступ в браузере."); }
     }
 
-    function renderUserCard(name) {
-        if (!document.getElementById('card-' + name)) {
-            document.getElementById('v-users').innerHTML += `<div class="v-u-card" id="card-${name}"><div>${name}</div><div class="vol-bar"><div class="vol-fill" id="vol-${name}"></div></div></div>`;
-        }
+    function renderCard(name) {
+        if (document.getElementById('card-' + name)) return;
+        const div = document.createElement('div');
+        div.className = 'v-u-card';
+        div.id = 'card-' + name;
+        div.innerHTML = `<div>${name}</div><div class="vol-bar"><div class="vol-fill" id="vol-${name}"></div></div>`;
+        document.getElementById('v-users').appendChild(div);
     }
 
     function startEngine() {
         db.ref('voice_v12').on('value', s => {
             s.forEach(c => {
-                const n = c.key;
-                renderUserCard(n);
+                const n = c.key; renderCard(n);
                 if (n !== myName && !connections[n]) setupRTC(n);
             });
         });
@@ -183,16 +198,18 @@
     }
 
     function visualize(stream, name) {
-        const src = gCtx.createMediaStreamSource(stream), anz = gCtx.createAnalyser(); src.connect(anz);
+        const anz = gCtx.createAnalyser(); anz.fftSize = 256;
+        gCtx.createMediaStreamSource(stream).connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
         function loop() {
             const bar = document.getElementById('vol-' + name);
             const card = document.getElementById('card-' + name);
-            if (!bar) return;
+            if (!bar) { requestAnimationFrame(loop); return; } // Ждем появления в DOM
             anz.getByteFrequencyData(dat);
-            let v = dat.reduce((a,b)=>a+b)/dat.length;
-            bar.style.width = Math.min(100, v * 5) + '%';
-            if (v > 5) card.classList.add('speaking'); else card.classList.remove('speaking');
+            let sum = 0; for(let i=0; i<dat.length; i++) sum += dat[i];
+            let v = sum / dat.length;
+            bar.style.width = Math.min(100, v * 6) + '%';
+            if (v > 8) card.classList.add('speaking'); else card.classList.remove('speaking');
             requestAnimationFrame(loop);
         } loop();
     }
