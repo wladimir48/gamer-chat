@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GamerChat v51.0</title>
-    <script src="https://www.gsta://tic.com"></script>
-    <script src="https://www.gsta://tic.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --green: #23a559; --red: #ed4245; }
         body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
@@ -137,7 +137,7 @@
     }
 
     function setupRTC(target, id) {
-        // Исправленный адрес STUN (удали )
+        // УДАЛИ ТИЛЬДЫ () В ССЫЛКЕ НИЖЕ:
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
 
@@ -153,8 +153,7 @@
             a.srcObject = e.streams[0];
             if (a.setSinkId) a.setSinkId(selectedSpk);
             document.getElementById('audio-storage').appendChild(a);
-            // Принудительный запуск для обхода блокировок
-            a.play().catch(() => console.log("Нужен клик для звука"));
+            a.play().catch(() => console.log("Нужен клик"));
             visualize(e.streams[0], target);
         };
 
