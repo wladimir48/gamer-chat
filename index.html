@@ -2,271 +2,164 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat v51.1 PRO — Firebase Edition</title>
-    <!-- Библиотеки Firebase -->
+    <title>GamerChat v51.1 PRO</title>
+    <!-- ПРАВИЛЬНЫЙ ПОРЯДОК ЗАГРУЗКИ FIREBASE -->
     <script src="https://://gstatic.com"></script>
     <script src="https://://gstatic.com"></script>
     <style>
-        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
-        body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        
-        /* Сетка Discord-style */
-        .col-servers { width: 72px; background: var(--bg-servers); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; flex-shrink: 0; }
-        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
-        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; position: relative; min-width: 0; }
-        .col-users { width: 200px; background: var(--bg-sidebar); padding: 10px; border-left: 1px solid rgba(0,0,0,0.2); flex-shrink: 0; }
-        
-        .srv-icon { width: 48px; height: 48px; background: var(--bg-main); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 20px; font-weight: bold; border: none; color: white; }
-        .srv-icon:hover { border-radius: 15px; background: var(--accent); }
-
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; font-size: 15px; line-height: 1.4; }
-        .msg-item { margin-bottom: 8px; }
-        
-        /* Голосовые карточки */
-        .v-u-card { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 2px solid transparent; transition: 0.2s; }
+        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --text: #dbdee1; }
+        body { background: var(--bg-servers); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; margin: 0; }
+        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; }
+        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; }
+        .v-u-card { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin: 5px 10px; border: 2px solid transparent; }
         .speaking { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); }
-        .vol-bar { width: 100%; height: 6px; background: #111; border-radius: 3px; margin-top: 5px; overflow: hidden; }
+        .vol-bar { width: 100%; height: 8px; background: #111; border-radius: 4px; margin-top: 5px; overflow: hidden; }
         .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.05s; }
-
-        .user-panel { background: #232428; padding: 10px; display: flex; align-items: center; justify-content: space-between; margin-top: auto; }
-        
-        /* Настройки (Модалка) */
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; display: none; align-items: center; justify-content: center; }
-        .m-content { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 340px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        #mic-test-bar { height: 12px; background: var(--green); width: 0%; border-radius: 6px; box-shadow: 0 0 15px var(--green); transition: 0.05s; }
-        
-        .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; transition: 0.2s; }
-        .btn:hover { filter: brightness(1.2); }
-        
-        .input-wrap { background: #383a40; border-radius: 8px; padding: 12px; margin: 15px; }
-        #ui { background: transparent; border: none; color: white; width: 100%; outline: none; font-size: 15px; }
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 99; display: none; align-items: center; justify-content: center; }
+        .m-content { background: var(--bg-main); padding: 20px; border-radius: 10px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
+        #mic-test-bar { height: 10px; background: var(--green); width: 0%; transition: 0.05s; }
+        .btn { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body onclick="initAudio()">
 
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0; text-align:center">GamerChat SETTINGS</h3>
-        <label>Никнейм:</label>
-        <input type="text" id="set-nick" placeholder="Введите ник..." style="background:#1e1f22; color:white; border:none; padding:10px; border-radius:6px;">
-        
-        <label>Индикатор микрофона:</label>
-        <div style="background:#111; height:12px; border-radius:6px; overflow:hidden;">
-            <div id="mic-test-bar"></div>
-        </div>
-        
-        <label>Устройство ввода:</label>
-        <select id="mic-list" style="background:#1e1f22; color:white; padding:10px; border:none; border-radius:6px; width:100%"></select>
-        
+        <h3 style="margin:0">НАСТРОЙКИ</h3>
+        <input type="text" id="set-nick" style="padding:8px; background:#1e1f22; color:white; border:none;">
+        <div style="background:#111; height:10px;"><div id="mic-test-bar"></div></div>
+        <select id="mic-list" style="padding:8px; background:#1e1f22; color:white; border:none;"></select>
         <button class="btn" onclick="saveSettings()">СОХРАНИТЬ</button>
-        <button class="btn" style="background:#4e5058" onclick="closeSettings()">ЗАКРЫТЬ</button>
+        <button class="btn" style="background:#444" onclick="closeSettings()">ЗАКРЫТЬ</button>
     </div>
 </div>
 
-<div class="col-servers"><div class="srv-icon">G</div></div>
-
 <div class="col-channels">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111; font-size:14px">🔊 ГОРЯЧАЯ ЛИНИЯ v51.1</div>
-    <div id="v-users" style="flex:1; overflow-y:auto; padding-top:10px;"></div>
-    
-    <div style="padding: 15px;">
-        <button id="btn-toggle" class="btn" onclick="joinVoice()">Войти в голос</button>
-        <button id="btn-leave" class="btn" style="background:var(--red); display:none" onclick="location.reload()">Выйти</button>
+    <div style="padding:15px; font-weight:bold">GamerChat v51.1</div>
+    <div id="v-users" style="flex:1"></div>
+    <div style="padding:10px">
+        <button id="btn-toggle" class="btn" style="width:100%" onclick="joinVoice()">ВОЙТИ В ГОЛОС</button>
     </div>
-
-    <div class="user-panel">
-        <div id="display-nick" style="font-weight:bold">Загрузка...</div>
-        <div onclick="openSettings()" style="cursor:pointer; font-size:18px; filter: grayscale(1)">⚙️</div>
+    <div style="padding:10px; background:#232428; display:flex; justify-content:space-between">
+        <span id="display-nick">...</span>
+        <span onclick="openSettings()" style="cursor:pointer">⚙️</span>
     </div>
 </div>
 
 <div class="col-chat">
-    <div id="msgs"></div>
-    <div class="input-wrap">
-        <input type="text" id="ui" placeholder="Написать в #general..." autocomplete="off">
-    </div>
+    <div id="msgs" style="flex:1; padding:20px; overflow-y:auto"></div>
+    <div style="padding:15px"><input type="text" id="ui" placeholder="Написать..." style="width:100%; padding:10px; background:#383a40; color:white; border:none; border-radius:5px"></div>
 </div>
 
-<div class="col-users" id="right-list">
-    <div style="font-weight:bold; margin-bottom:10px; font-size:12px; color:#8e9297">В СЕТИ — 0</div>
-</div>
-
----
 <script>
-    // --- КОНФИГУРАЦИЯ ---
     let myName = localStorage.getItem('chat_nick') || "CREATIV";
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let gCtx = null, myStream = null, testStream = null;
-    const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
+    // ТВОЙ КОНФИГ (БЕЗ ОШИБОК)
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
-        authDomain: "gamerchat-7a857.firebaseapp.com",
         databaseURL: "https://gamerchat-7a857-default-rtdb.firebaseio.com",
-        projectId: "gamerchat-7a857",
-        storageBucket: "gamerchat-7a857.firebasestorage.app",
-        messagingSenderId: "899769524812",
-        appId: "1:899769524812:web:87609f2f41e3ab93084ae9"
     };
 
-    firebase.initializeApp(cfg);
-    const db = firebase.database();
-
-    // --- СИСТЕМА ЗВУКА ---
-    function initAudio() { 
-        if(!gCtx) {
-            gCtx = new (window.AudioContext || window.webkitAudioContext)();
-            console.log("AudioContext инициирован");
+    // Проверка загрузки Firebase перед инициализацией
+    function startApp() {
+        if (typeof firebase === 'undefined') {
+            console.error("Firebase не загружен! Проверь тильды в ссылках.");
+            return;
         }
-        if(gCtx.state === 'suspended') gCtx.resume();
+        firebase.initializeApp(cfg);
+        const db = firebase.database();
+        setupChat(db);
+    }
+
+    function initAudio() {
+        if (!gCtx) gCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (gCtx.state === 'suspended') gCtx.resume();
+    }
+
+    async function openSettings() {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('set-nick').value = myName;
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const list = document.getElementById('mic-list'); list.innerHTML = "";
+        devs.forEach(d => { if(d.kind==='audioinput') {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId; opt.text = d.label || 'Микрофон';
+            if(d.deviceId === selectedMic) opt.selected = true;
+            list.appendChild(opt);
+        }});
+        list.onchange = () => { selectedMic = list.value; startMicTest(selectedMic); };
+        startMicTest(selectedMic);
     }
 
     async function startMicTest(id) {
         if(testStream) testStream.getTracks().forEach(t=>t.stop());
         try {
+            // ФИКС: Явно указываем устройство, чтобы не ловить системный звук
             const constraints = { audio: { deviceId: id === 'default' ? undefined : { exact: id } } };
             testStream = await navigator.mediaDevices.getUserMedia(constraints);
             initAudio();
-            
             const src = gCtx.createMediaStreamSource(testStream);
-            const anz = gCtx.createAnalyser(); 
-            anz.fftSize = 256;
-            src.connect(anz);
-            
+            const anz = gCtx.createAnalyser(); src.connect(anz);
             const dat = new Uint8Array(anz.frequencyBinCount);
             function loop() {
                 if (document.getElementById('modal').style.display === 'none') return;
                 anz.getByteFrequencyData(dat);
-                let max = 0;
-                for(let i=0; i<dat.length; i++) if(dat[i] > max) max = dat[i];
-                
-                // ЭКСТРЕМАЛЬНЫЙ ИНДИКАТОР: (max / 255) * 450
+                let max = 0; for(let i=0; i<dat.length; i++) if(dat[i]>max) max=dat[i];
                 document.getElementById('mic-test-bar').style.width = Math.min(100, (max / 255) * 450) + "%";
                 requestAnimationFrame(loop);
             } loop();
-        } catch(e) { console.error("Ошибка теста микрофона"); }
+        } catch(e) { console.error("Микрофон недоступен"); }
+    }
+
+    function setupChat(db) {
+        document.getElementById('display-nick').innerText = myName;
+        const ui = document.getElementById('ui');
+        ui.onkeydown = (e) => { if(e.key==='Enter' && ui.value.trim()){ db.ref('global_chat').push({u:myName, t:ui.value}); ui.value=""; }};
+        db.ref('global_chat').limitToLast(20).on('child_added', s => {
+            const d = s.val(); document.getElementById('msgs').innerHTML += `<div><b>${d.u}:</b> ${d.t}</div>`;
+            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+        });
     }
 
     async function joinVoice() {
-        try {
-            initAudio();
-            const constraints = { audio: { deviceId: selectedMic === 'default' ? undefined : { exact: selectedMic } } };
-            myStream = await navigator.mediaDevices.getUserMedia(constraints);
-            
-            document.getElementById('btn-toggle').style.display = 'none';
-            document.getElementById('btn-leave').style.display = 'block';
-            
-            // Запись в Firebase (Presence Voice)
-            db.ref('voice_v12').child(myName).set({ id: myPeerId });
-            
-            renderUserCard(myName);
-            visualize(myStream, myName);
-            
-            // Звук ICQ через твой метод 
-            const icq = new Audio('https://wladimir4k.github.io/gamer-chat/icq.mp3');
-            icq.play().catch(e => {});
-
-        } catch (e) { alert("Ошибка микрофона! Проверьте разрешения."); }
+        initAudio();
+        const constraints = { audio: { deviceId: selectedMic === 'default' ? undefined : { exact: selectedMic } } };
+        myStream = await navigator.mediaDevices.getUserMedia(constraints);
+        document.getElementById('btn-toggle').innerText = "В ГОЛОСЕ";
+        renderCard(myName);
+        visualize(myStream, myName);
     }
 
-    function visualize(stream, name) {
-        const src = gCtx.createMediaStreamSource(stream), anz = gCtx.createAnalyser(); 
-        src.connect(anz);
-        const dat = new Uint8Array(anz.frequencyBinCount);
+    function renderCard(n) {
+        if(document.getElementById('card-'+n)) return;
+        document.getElementById('v-users').innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
+    }
 
+    function visualize(stream, n) {
+        const src = gCtx.createMediaStreamSource(stream), anz = gCtx.createAnalyser(); src.connect(anz);
+        const dat = new Uint8Array(anz.frequencyBinCount);
         function loop() {
-            const bar = document.getElementById('vol-' + name);
-            const card = document.getElementById('card-' + name);
-            if (!bar) return;
-            
             anz.getByteFrequencyData(dat);
-            let max = 0;
-            for(let i=0; i<dat.length; i++) if(dat[i] > max) max = dat[i];
-            
+            let max = 0; for(let i=0; i<dat.length; i++) if(dat[i]>max) max=dat[i];
             let v = (max / 255) * 100;
-            bar.style.width = Math.min(100, v * 3) + '%'; // v * 3 для наглядности
-            
-            if (v > 5) card.classList.add('speaking'); 
-            else card.classList.remove('speaking');
-            
+            if(document.getElementById('vol-'+n)) document.getElementById('vol-'+n).style.width = Math.min(100, v*3) + "%";
+            if(v > 5) document.getElementById('card-'+n).classList.add('speaking'); else document.getElementById('card-'+n).classList.remove('speaking');
             requestAnimationFrame(loop);
         } loop();
     }
 
-    // --- ИНТЕРФЕЙС И НАСТРОЙКИ ---
-    async function openSettings() {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('set-nick').value = myName;
-        
-        const devs = await navigator.mediaDevices.enumerateDevices();
-        const list = document.getElementById('mic-list'); 
-        list.innerHTML = "";
-        
-        devs.forEach(d => { if(d.kind==='audioinput') {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId; opt.text = d.label || 'Физический вход';
-            if(d.deviceId === selectedMic) opt.selected = true;
-            list.appendChild(opt);
-        }});
-
-        list.onchange = () => { selectedMic = list.value; startMicTest(selectedMic); };
-        startMicTest(selectedMic);
-    }
-
     function saveSettings() {
-        const newNick = document.getElementById('set-nick').value.trim();
-        if(newNick) {
-            localStorage.setItem('chat_nick', newNick);
-            myName = newNick;
-            document.getElementById('display-nick').innerText = newNick;
-        }
+        myName = document.getElementById('set-nick').value;
+        localStorage.setItem('chat_nick', myName);
         localStorage.setItem('chat_mic', selectedMic);
-        closeSettings();
+        location.reload();
     }
+    function closeSettings() { document.getElementById('modal').style.display = 'none'; if(testStream) testStream.getTracks().forEach(t=>t.stop()); }
 
-    function closeSettings() {
-        if(testStream) testStream.getTracks().forEach(t=>t.stop());
-        document.getElementById('modal').style.display = 'none';
-    }
-
-    function renderUserCard(name) {
-        if (document.getElementById('card-' + name)) return;
-        document.getElementById('v-users').innerHTML += `
-            <div class="v-u-card" id="card-${name}">
-                <div style="font-size:13px; font-weight:bold">${name}</div>
-                <div class="vol-bar"><div class="vol-fill" id="vol-${name}"></div></div>
-            </div>`;
-    }
-
-    // --- СТАРТ ПРИЛОЖЕНИЯ ---
-    window.onload = () => {
-        document.getElementById('display-nick').innerText = myName;
-        
-        // Чат
-        const ui = document.getElementById('ui');
-        ui.onkeydown = (e) => { 
-            if (e.key === 'Enter' && ui.value.trim()) { 
-                db.ref('global_chat').push().set({ u: myName, t: ui.value }); 
-                ui.value = ""; 
-            } 
-        };
-        
-        db.ref('global_chat').limitToLast(30).on('child_added', s => {
-            const d = s.val(); 
-            document.getElementById('msgs').innerHTML += `<div class="msg-item"><b>${d.u}:</b> ${d.t}</div>`;
-            document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-        });
-
-        // Список "В сети"
-        db.ref('presence').on('value', s => {
-            const list = document.getElementById('right-list');
-            list.innerHTML = `<div style="font-weight:bold; margin-bottom:10px; font-size:12px; color:#8e9297">В СЕТИ — ${s.numChildren()}</div>`;
-            s.forEach(c => { list.innerHTML += `<div style="padding:2px 0">● ${c.key}</div>`; });
-        });
-
-        db.ref('presence').child(myName).set('online');
-        db.ref('presence').child(myName).onDisconnect().remove();
-    };
+    // Ждем полной загрузки страницы и запускаем
+    window.onload = startApp;
 </script>
 </body>
 </html>
