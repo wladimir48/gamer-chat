@@ -4,20 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GamerChat v51.0</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gsta://tic.com"></script>
+    <script src="https://www.gsta://tic.com"></script>
     <style>
         :root { --bg: #313338; --sidebar: #2b2d31; --accent: #5865f2; --green: #23a559; --red: #ed4245; }
         body { background: #1e1f22; color: #dbdee1; font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .sidebar { width: 260px; background: var(--sidebar); display: flex; flex-direction: column; border-right: 1px solid #1a1b1e; }
         .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
         .cat { font-size: 11px; color: #949ba4; font-weight: bold; padding: 20px 15px 5px; text-transform: uppercase; }
-        .v-u-card { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 1px solid transparent; }
+        .v-u-card { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin: 5px 15px; border: 1px solid transparent; transition: 0.3s; }
         .speaking { border-color: var(--green); box-shadow: 0 0 10px rgba(35, 165, 89, 0.3); }
         .vol-bar { width: 100%; height: 4px; background: #111; border-radius: 2px; margin-top: 5px; overflow: hidden; }
         .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.1s; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { margin-bottom: 10px; }
+        .msg { margin-bottom: 10px; word-break: break-word; }
         .radio-box { padding: 15px; background: rgba(0,0,0,0.3); }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; text-transform: uppercase; }
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000; display: none; align-items: center; justify-content: center; }
@@ -25,10 +25,8 @@
         input, select { background: #1e1f22; border: 1px solid #444; color: white; padding: 10px; border-radius: 5px; }
     </style>
 </head>
-<body onclick="if(window.AudioContext) new AudioContext().resume()">
-
+<body onclick="if(window.AudioContext && gCtx) gCtx.resume()">
 <div id="audio-storage" style="display:none"></div>
-
 <div id="modal">
     <div class="m-content">
         <h3>Настройки</h3>
@@ -38,7 +36,6 @@
         <button class="btn" onclick="saveSettings()">OK</button>
     </div>
 </div>
-
 <div class="sidebar">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #111; display:flex; justify-content:space-between">
         GamerChat <span style="cursor:pointer" onclick="openSettings()">⚙️</span>
@@ -46,7 +43,6 @@
     <div class="cat">Голосовой канал</div>
     <div id="v-users"></div>
 </div>
-
 <div class="main">
     <div id="msgs"></div>
     <div class="radio-box">
@@ -55,7 +51,6 @@
     </div>
     <div style="padding:15px"><input type="text" id="ui" style="width:100%; box-sizing:border-box" placeholder="Сообщение..." autocomplete="off"></div>
 </div>
-
 <script>
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
@@ -75,10 +70,11 @@
     let selectedSpk = localStorage.getItem('chat_spk') || 'default';
     let myStream = null;
     let connections = {};
-    let gCtx = null; // Глобальный аудио-контекст
+    let gCtx = null; 
     const myPeerId = 'id-' + Math.random().toString(36).substr(2, 9);
 
     window.onload = () => {
+        document.getElementById('set-nick').value = myName;
         const ui = document.getElementById('ui');
         ui.onkeydown = (e) => {
             if (e.key === 'Enter' && ui.value.trim()) {
@@ -104,69 +100,87 @@
             db.ref('voice_v12').child(myName).onDisconnect().remove();
             visualize(myStream, myName);
             startEngine();
-        } catch (e) { alert("Ошибка микрофона!"); }
+        } catch (e) { 
+            alert("Ошибка микрофона! Проверь разрешения в браузере."); 
+        }
     }
-
     function startEngine() {
         db.ref('voice_v12').on('value', s => {
-            const b = document.getElementById('v-users'); b.innerHTML = "";
+            const b = document.getElementById('v-users');
             s.forEach(c => {
                 const n = c.key;
-                if (!document.getElementById('card-'+n)) {
+                if (!document.getElementById('card-' + n)) {
                     b.innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
                 }
                 if (n !== myName && !connections[n]) setupRTC(n, c.val().id);
             });
         });
+
         db.ref('signals_v12').child(myName).on('child_added', async s => {
-            const d = s.val(); if (!connections[d.from]) setupRTC(d.from, d.id);
+            const d = s.val(); 
+            if (!connections[d.from]) setupRTC(d.from, d.id);
             const pc = connections[d.from];
             try {
                 if (d.type === 'offer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.offer));
-                    const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
+                    const ans = await pc.createAnswer();
+                    await pc.setLocalDescription(ans);
                     db.ref('signals_v12').child(d.from).push({ type: 'answer', answer: ans, from: myName });
                 } else if (d.type === 'answer') {
                     await pc.setRemoteDescription(new RTCSessionDescription(d.answer));
                 } else if (d.type === 'ice' && d.ice) {
                     await pc.addIceCandidate(new RTCIceCandidate(d.ice));
                 }
-            } catch (e) {}
+            } catch (e) { console.error("Ошибка сигнала:", e); }
             s.ref.remove();
         });
     }
 
     function setupRTC(target, id) {
+        // Исправленный адрес STUN (удали )
         const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
         connections[target] = pc;
+
         myStream.getTracks().forEach(t => pc.addTrack(t, myStream));
-        pc.onicecandidate = e => { if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName }); };
+
+        pc.onicecandidate = e => {
+            if (e.candidate) db.ref('signals_v12').child(target).push({ type: 'ice', ice: e.candidate, from: myName });
+        };
+
         pc.ontrack = e => {
-            const a = document.createElement('audio'); a.autoplay = true; a.srcObject = e.streams[0];
+            const a = document.createElement('audio');
+            a.autoplay = true;
+            a.srcObject = e.streams[0];
             if (a.setSinkId) a.setSinkId(selectedSpk);
             document.getElementById('audio-storage').appendChild(a);
+            // Принудительный запуск для обхода блокировок
+            a.play().catch(() => console.log("Нужен клик для звука"));
             visualize(e.streams[0], target);
         };
+
         if (myName < target) {
             pc.onnegotiationneeded = async () => {
-                const off = await pc.createOffer(); await pc.setLocalDescription(off);
+                const off = await pc.createOffer();
+                await pc.setLocalDescription(off);
                 db.ref('signals_v12').child(target).push({ type: 'offer', offer: off, from: myName });
             };
         }
     }
 
     function visualize(stream, name) {
-        if(!stream) return;
-        if(!gCtx) gCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!stream) return;
+        if (!gCtx) gCtx = new (window.AudioContext || window.webkitAudioContext)();
         const src = gCtx.createMediaStreamSource(stream);
-        const anz = gCtx.createAnalyser(); src.connect(anz);
+        const anz = gCtx.createAnalyser(); 
+        src.connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
+
         function loop() {
             const bar = document.getElementById('vol-' + name);
             const card = document.getElementById('card-' + name);
             if (!bar) return;
             anz.getByteFrequencyData(dat);
-            let v = dat.reduce((a,b) => a+b) / dat.length;
+            let v = dat.reduce((a, b) => a + b) / dat.length;
             bar.style.width = Math.min(100, v * 5) + '%';
             if (card) {
                 if (v > 5) card.classList.add('speaking');
@@ -180,7 +194,8 @@
     window.openSettings = () => {
         document.getElementById('modal').style.display = 'flex';
         navigator.mediaDevices.enumerateDevices().then(devs => {
-            const mS = document.getElementById('mic-list'); const sS = document.getElementById('speaker-list');
+            const mS = document.getElementById('mic-list'); 
+            const sS = document.getElementById('speaker-list');
             mS.innerHTML = ""; sS.innerHTML = "";
             devs.forEach(d => {
                 const opt = `<option value="${d.deviceId}">${d.label || 'Устройство'}</option>`;
