@@ -2,173 +2,170 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO — ULTIMATE</title>
+    <title>GamerChat PRO v51.5.0 — TRIPLE COLUMN</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
+        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; --offline: #80848e; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
-        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; position: relative; }
+        
+        /* ТРИ КОЛОНКИ */
+        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid rgba(0,0,0,0.2); }
+        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
+        .col-users { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-left: 1px solid rgba(0,0,0,0.2); padding: 15px; }
+
         #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
-        .input-area { padding: 20px; background: var(--bg-main); display: flex; gap: 10px; align-items: center; }
-        #ui { flex: 1; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
         
-        /* Модалка настроек */
-        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 999; }
-        .m-box { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 400px; display: flex; flex-direction: column; gap: 10px; max-height: 90vh; overflow-y: auto; }
+        /* ПРОФИЛЬ СВЕРХУ */
+        .my-profile-top { padding: 15px; background: #232428; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; }
+        .u-ava { width: 35px; height: 35px; border-radius: 50%; background: #4e5058; object-fit: cover; position: relative; }
         
-        /* Аватарки */
-        .ava-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 10px 0; }
-        .ava-item { width: 50px; height: 50px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: 0.2s; object-fit: cover; }
-        .ava-active { border-color: var(--accent); }
+        /* ИНДИКАТОР ПОД АВАТАРОМ В ГОЛОСЕ */
+        .mic-mini-bar { width: 32px; height: 4px; background: #111; border-radius: 2px; margin-top: 4px; overflow: hidden; }
+        .mic-mini-fill { height: 100%; width: 0%; background: var(--green); transition: 0.05s; }
+
+        /* СТАТУСЫ В СПИСКЕ СПРАВА */
+        .user-item { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; opacity: 0.8; transition: 0.2s; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-sidebar); position: absolute; bottom: 0; right: 0; }
+        .online-dot { background: var(--green); }
+        .offline-dot { background: var(--offline); }
+
+        .emoji-bar { padding: 8px 20px; background: rgba(0,0,0,0.1); display: flex; gap: 10px; overflow-x: auto; }
+        .emoji-item { cursor: pointer; font-size: 20px; transition: 0.2s; }
+        .input-area { padding: 15px 20px 25px; background: var(--bg-main); }
+        #ui { width: 100%; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
         
-        /* Индикация микрофона */
-        .mic-bar { background: #111; height: 8px; border-radius: 4px; overflow: hidden; margin: 5px 0; }
-        #mic-fill { height: 100%; width: 0%; background: var(--green); transition: 0.05s; }
-        .speaking { border: 2px solid var(--green) !important; box-shadow: 0 0 10px var(--green); }
-        
-        .btn { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        .u-card { padding: 8px 15px; display: flex; align-items: center; gap: 10px; }
-        .u-ava { width: 32px; height: 32px; border-radius: 50%; background: #4e5058; }
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 999; }
+        .m-box { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 350px; display: flex; flex-direction: column; gap: 12px; }
+        .btn-clear { background: var(--red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
     </style>
 </head>
 <body onclick="if(window.gCtx)gCtx.resume()">
 
 <div id="modal">
     <div class="m-box">
-        <h3 style="margin:0; text-align:center">⚙️ РАСШИРЕННЫЕ НАСТРОЙКИ</h3>
-        <label>Никнейм:</label><input type="text" id="in-nick" style="padding:8px">
-        <label>Цвет ника:</label><input type="color" id="in-color" style="width:100%; height:30px; border:none; background:none">
-        
-        <label>Выбери аватар:</label>
-        <div class="ava-grid" id="ava-picker"></div>
-        
-        <label>Чувствительность микрофона (Extreme):</label>
-        <div class="mic-bar"><div id="mic-fill"></div></div>
-        <input type="range" id="in-sens" min="1" max="100" value="10" style="width:100%">
-        
-        <label>Устройство ввода:</label>
-        <select id="in-mic" style="padding:8px"></select>
-
-        <button class="btn" onclick="saveSets()">СОХРАНИТЬ</button>
-        <button class="btn" style="background:var(--red)" onclick="adminClear()">ОЧИСТИТЬ ЧАТ (АДМИН)</button>
-        <button onclick="document.getElementById('modal').style.display='none'" style="background:none; color:white; border:none; cursor:pointer">Закрыть</button>
+        <h3 style="margin:0; text-align:center">⚙️ НАСТРОЙКИ</h3>
+        <label style="font-size:11px">НИКНЕЙМ:</label>
+        <input type="text" id="in-nick" style="padding:10px; background:#1e1f22; color:white; border:none; border-radius:4px">
+        <label style="font-size:11px">ЧУВСТВИТЕЛЬНОСТЬ: <span id="sens-val">10</span></label>
+        <input type="range" id="in-sens" min="1" max="100" value="10" style="width:100%" oninput="document.getElementById('sens-val').innerText=this.value">
+        <button class="btn-clear" onclick="adminClear()">ОЧИСТИТЬ ЧАТ (АДМИН)</button>
+        <button class="btn-clear" style="background:var(--accent)" onclick="saveSets()">ПРИМЕНИТЬ</button>
+        <button onclick="document.getElementById('modal').style.display='none'" style="background:none; color:gray; border:none; cursor:pointer; margin-top:5px">Отмена</button>
     </div>
 </div>
 
+<!-- КОЛОНКА 1: КАНАЛЫ -->
 <div class="col-channels">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">🔊 GamerChat PRO</div>
-    <div style="flex:1; overflow-y:auto" id="v-list"></div>
-    <div style="padding:10px"><button class="btn" style="width:100%" onclick="toggleVoice()" id="v-btn">🔈 ВОЙТИ В ГОЛОС</button></div>
-    <div style="padding:15px; background:#232428; display:flex; justify-content:space-between; align-items:center">
-        <div style="display:flex; align-items:center; gap:8px">
-            <img id="my-ava-img" class="u-ava">
-            <b id="my-nick">...</b>
+    <div class="my-profile-top">
+        <div style="display:flex; align-items:center; gap:10px">
+            <div class="u-ava"><img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=Вован" style="width:100%; border-radius:50%"><div class="status-dot online-dot"></div></div>
+            <b id="my-nick" style="font-size:14px">Вован</b>
         </div>
-        <span onclick="openSets()" style="cursor:pointer; font-size:20px">⚙️</span>
+        <span onclick="openSets()" style="cursor:pointer; font-size:18px">⚙️</span>
+    </div>
+    <div style="flex:1; padding:15px">
+        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; color:#949ba4; font-weight:bold; margin-bottom:15px">🔈 ВОЙТИ В КАНАЛ</div>
+        <div id="v-list"></div>
     </div>
 </div>
 
+<!-- КОЛОНКА 2: ЧАТ -->
 <div class="col-chat">
     <div id="msgs"></div>
-    <div class="input-area">
-        <span onclick="addEmoji('😊')" style="cursor:pointer; font-size:20px">😊</span>
-        <input type="text" id="ui" placeholder="Напиши сообщение..." autocomplete="off">
-    </div>
+    <div class="emoji-bar" id="emoji-list"></div>
+    <div class="input-area"><input type="text" id="ui" placeholder="Напиши сообщение..." autocomplete="off"></div>
+</div>
+
+<!-- КОЛОНКА 3: УЧАСТНИКИ -->
+<div class="col-users">
+    <div style="color: #949ba4; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 15px;" id="u-count">УЧАСТНИКИ — 0</div>
+    <div id="u-list-online"></div>
 </div>
 
 <script>
     "use strict";
     const socket = io('https://92ftbdnzwp.localto.net', { transports: ['polling', 'websocket'] });
-    
-    let myName = localStorage.getItem('chat_nick') || "Вован";
-    let myColor = localStorage.getItem('chat_color') || "#ffffff";
-    let myAva = localStorage.getItem('chat_ava') || "https://api.dicebear.com/7.x/pixel-art/svg?seed=1";
-    let mySens = localStorage.getItem('chat_sens') || 10;
-    let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
+    let myName = localStorage.getItem('chat_nick') || "Вован", mySens = 10, isInVoice = false, gCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const emojis = ['😊','😂','😎','🔥','🎮','💀','🤖','👾','👻','👑','💎','👍','🚀','💢','🤡'];
 
-    const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+20}`);
+    window.onload = () => { document.getElementById('my-nick').innerText = myName; renderEmojis(); };
 
-    window.onload = () => {
-        document.getElementById('my-nick').innerText = myName;
-        document.getElementById('my-ava-img').src = myAva;
-        renderAvas();
-    };
-
-    function renderAvas() {
-        const p = document.getElementById('ava-picker');
-        p.innerHTML = "";
-        avas.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url; img.className = 'ava-item' + (url===myAva?' ava-active':'');
-            img.onclick = () => { myAva = url; renderAvas(); };
-            p.appendChild(img);
+    function renderEmojis() {
+        const bar = document.getElementById('emoji-list'); bar.innerHTML = "";
+        emojis.forEach(e => {
+            const s = document.createElement('span'); s.className = 'emoji-item'; s.innerText = e;
+            s.onclick = () => { const ui = document.getElementById('ui'); ui.value += e; ui.focus(); };
+            bar.appendChild(s);
         });
     }
 
-    async function openSets() {
-        document.getElementById('modal').style.display = 'flex';
-        document.getElementById('in-nick').value = myName;
-        document.getElementById('in-color').value = myColor;
-        const devs = await navigator.mediaDevices.enumerateDevices();
-        const sel = document.getElementById('in-mic'); sel.innerHTML = "";
-        devs.forEach(d => { if(d.kind==='audioinput'){ const o = document.createElement('option'); o.value=d.deviceId; o.text=d.label; sel.add(o); } });
-        
-        // Индикация микрофона (Extreme)
-        const s = await navigator.mediaDevices.getUserMedia({audio:true});
-        const src = gCtx.createMediaStreamSource(s), anz = gCtx.createAnalyser();
-        src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
-        function loop() {
-            if(document.getElementById('modal').style.display==='none'){ s.getTracks().forEach(t=>t.stop()); return; }
-            anz.getByteFrequencyData(dat);
-            let v = (Math.max(...dat) / 255) * 100;
-            document.getElementById('mic-fill').style.width = v + "%";
-            requestAnimationFrame(loop);
-        } loop();
-    }
-
-    function saveSets() {
-        localStorage.setItem('chat_nick', document.getElementById('in-nick').value);
-        localStorage.setItem('chat_color', document.getElementById('in-color').value);
-        localStorage.setItem('chat_ava', myAva);
-        localStorage.setItem('chat_sens', document.getElementById('in-sens').value);
-        location.reload();
-    }
-
-    // ГОЛОС
     async function toggleVoice() {
         if (!isInVoice) {
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const s = await navigator.mediaDevices.getUserMedia({ audio: true });
             isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
-            socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true });
+            socket.emit('user join', { name: myName, inVoice: true });
+            // АНАЛИЗАТОР ДЛЯ ПОЛОСКИ ПОД АВАТАРОМ
+            const src = gCtx.createMediaStreamSource(s), anz = gCtx.createAnalyser();
+            src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
+            function loop() {
+                if(!isInVoice) return;
+                anz.getByteFrequencyData(dat);
+                let vol = (Math.max(...dat)/255)*100;
+                const fill = document.getElementById('mic-v-' + socket.id);
+                if(fill) fill.style.width = vol + "%";
+                socket.emit('speaking', vol > mySens);
+                requestAnimationFrame(loop);
+            } loop();
         } else { location.reload(); }
     }
 
-    // ЧАТ
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if(e.key === 'Enter' && ui.value.trim()){
-            socket.emit('chat message', { u: myName, t: ui.value, c: myColor, a: myAva });
-            ui.value = "";
+    // ОБНОВЛЕНИЕ ВСЕХ СПИСКОВ
+    socket.on('update users', users => {
+        const vList = document.getElementById('v-list');
+        const uList = document.getElementById('u-list-online');
+        vList.innerHTML = ""; uList.innerHTML = "";
+        let count = 0;
+
+        for(let id in users) {
+            const u = users[id]; count++;
+            // Правая колонка участников
+            uList.insertAdjacentHTML('beforeend', `
+                <div class="user-item">
+                    <div class="u-ava" style="width:32px; height:32px">
+                        <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=${u.name}" style="width:100%; border-radius:50%">
+                        <div class="status-dot online-dot"></div>
+                    </div>
+                    <span style="font-size:14px; font-weight:500">${u.name}</span>
+                </div>`);
+            
+            // Голосовой список
+            if(u.inVoice) {
+                vList.insertAdjacentHTML('beforeend', `
+                    <div style="display:flex; align-items:center; gap:10px; padding:5px 0">
+                        <div style="display:flex; flex-direction:column; align-items:center">
+                            <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=${u.name}" style="width:32px; border-radius:50%">
+                            <div class="mic-mini-bar"><div class="mic-mini-fill" id="mic-v-${id}"></div></div>
+                        </div>
+                        <span style="font-size:13px">${u.name}</span>
+                    </div>`);
+            }
         }
-    };
-    
+        document.getElementById('u-count').innerText = `УЧАСТНИКИ — ${count}`;
+    });
+
+    const ui = document.getElementById('ui');
+    ui.onkeydown = (e) => { if(e.key === 'Enter' && ui.value.trim()){ socket.emit('chat message', { u: myName, t: ui.value }); ui.value = ""; } };
     socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div style="display:flex; gap:10px; margin-bottom:10px"><img src="${d.a}" class="u-ava"><div><b style="color:${d.c}">${d.u}:</b> ${d.t}</div></div>`);
+        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b>${d.u}:</b> ${d.t}</div>`);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     });
 
-    socket.on('update users', users => {
-        const l = document.getElementById('v-list'); l.innerHTML = "";
-        for(let id in users) if(users[id].inVoice) l.insertAdjacentHTML('beforeend', `<div class="u-card"><img src="${users[id].ava}" class="u-ava"><span>${users[id].name}</span></div>`);
-    });
-
-    function adminClear() { if(confirm("Очистить чат?")) socket.emit('admin clear'); }
-    socket.on('chat cleared', () => document.getElementById('msgs').innerHTML = "--- ЧАТ ОЧИЩЕН ---");
-    function addEmoji(e) { ui.value += e; ui.focus(); }
-
-    socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: false });
+    function openSets() { document.getElementById('modal').style.display = 'flex'; document.getElementById('in-nick').value = myName; }
+    function saveSets() { localStorage.setItem('chat_nick', document.getElementById('in-nick').value); location.reload(); }
+    function adminClear() { if(confirm("Очистить?")) socket.emit('admin clear'); }
+    socket.on('chat cleared', () => document.getElementById('msgs').innerHTML = "<i>Чат очищен</i>");
+    socket.emit('user join', { name: myName, inVoice: false });
 </script>
 </body>
 </html>
