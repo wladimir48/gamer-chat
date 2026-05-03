@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v52.1 — VOICE FIX</title>
+    <title>GamerChat PRO v53.0 — TOTAL CONTROL</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -71,6 +71,7 @@
 
 <script>
     "use strict";
+    // МАГИЯ: Один адрес для чата и звонков
     const socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
@@ -80,30 +81,34 @@
     
     let gCtx = new (window.AudioContext || window.webkitAudioContext)();
     let peer = null, myStream = null, isInVoice = false;
-    let activeCalls = {}; // Чтобы не звонить дважды
+    let activeCalls = {};
 
     const emojis = ['😊','😂','😎','🔥','🎮','💀','🤖','👾','👻','👑','💎','👍','🚀','💢','🤡'];
     const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+123}`);
 
     window.onload = () => { 
-        updateUI(); renderEmojis(); setupPeer();
+        updateUI(); renderEmojis(); 
         socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: false });
+        setupPeer(); // Запускаем свой Peer-клиент
     };
 
     async function setupPeer() {
-        // РЕМОНТ: Используем Google STUN сервер
+        // РЕМОНТ: Стучимся на СВОЙ сервер /peerjs
         peer = new Peer(undefined, {
-            config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] },
-            debug: 1
+            host: window.location.hostname,
+            port: window.location.port || (window.location.protocol === 'https:' ? 443 : 80),
+            path: '/peerjs',
+            secure: window.location.protocol === 'https:',
+            debug: 1,
+            config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] }
         });
 
         peer.on('open', id => {
-            console.log('Peer ID Ожил:', id);
+            console.log('МОЙ ЛОКАЛЬНЫЙ ID:', id);
             socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: isInVoice, pID: id });
         });
 
         peer.on('call', call => {
-            console.log('Принимаю входящий звонок...');
             call.answer(myStream);
             call.on('stream', rem => {
                 const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
@@ -118,21 +123,6 @@
         });
     }
 
-    function updateUI() {
-        document.getElementById('my-nick').innerText = myName;
-        document.getElementById('my-nick').style.color = myColor;
-        document.getElementById('my-ava-img').src = myAva;
-    }
-
-    function renderEmojis() {
-        const bar = document.getElementById('emoji-list'); bar.innerHTML = "";
-        emojis.forEach(e => {
-            const s = document.createElement('span'); s.className = 'emoji-item'; s.innerText = e;
-            s.onclick = () => { const ui = document.getElementById('ui'); ui.value += e; ui.focus(); };
-            bar.appendChild(s);
-        });
-    }
-
     socket.on('update users', users => {
         const vL = document.getElementById('v-list'), uL = document.getElementById('u-list-online');
         vL.innerHTML = ""; uL.innerHTML = ""; let count = 0;
@@ -143,9 +133,8 @@
             if(u.inVoice) {
                 vL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px"><div style="text-align:center"><img src="${u.ava}" style="width:32px; border-radius:50%; border:2px solid ${u.isSpeaking?'var(--green)':'transparent'}" class="${u.isSpeaking?'speaking-border':''}"><div class="mic-mini-bar"><div class="mic-mini-fill" id="mic-v-${id}"></div></div></div><span style="font-size:13px; color:${u.color}">${u.name}</span></div>`);
                 
-                // РЕМОНТ: АВТО-ДОЗВОН
+                // Звоним соседу, если мы в голосе и у него есть ID
                 if(isInVoice && u.pID && id !== socket.id && !activeCalls[id]) {
-                    console.log('Звоню другу:', u.name);
                     const call = peer.call(u.pID, myStream);
                     activeCalls[id] = call;
                     call.on('stream', rem => {
@@ -155,11 +144,6 @@
             }
         }
         document.getElementById('u-count').innerText = `В СЕТИ — ${count}`;
-    });
-
-    socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b style="color:${d.c}">${d.u}:</b> ${d.t}</div>`);
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     });
 
     async function toggleVoice() {
@@ -182,10 +166,11 @@
                     socket.emit('speaking', vol > mySens);
                     requestAnimationFrame(loop);
                 } loop();
-            } catch(e) { alert("Микрофон заблокирован!"); }
+            } catch(e) { alert("Ошибка микрофона!"); }
         } else { location.reload(); }
     }
 
+    // ... (остальные функции saveSets, openSets, renderEmojis без изменений) ...
     function openSets() {
         document.getElementById('modal').style.display = 'flex';
         const p = document.getElementById('ava-picker'); p.innerHTML = "";
@@ -196,7 +181,6 @@
             p.appendChild(img);
         });
     }
-
     function saveSets() {
         myName = document.getElementById('in-nick').value;
         myColor = document.getElementById('in-color').value;
@@ -207,7 +191,19 @@
         localStorage.setItem('chat_sens', mySens);
         location.reload();
     }
-    
+    function updateUI() {
+        document.getElementById('my-nick').innerText = myName;
+        document.getElementById('my-nick').style.color = myColor;
+        document.getElementById('my-ava-img').src = myAva;
+    }
+    function renderEmojis() {
+        const bar = document.getElementById('emoji-list'); bar.innerHTML = "";
+        emojis.forEach(e => {
+            const s = document.createElement('span'); s.className = 'emoji-item'; s.innerText = e;
+            s.onclick = () => { const ui = document.getElementById('ui'); ui.value += e; ui.focus(); };
+            bar.appendChild(s);
+        });
+    }
     document.getElementById('ui').onkeydown = (e) => { 
         if(e.key === 'Enter' && e.target.value.trim()){ 
             socket.emit('chat message', { u: myName, t: e.target.value, c: myColor }); 
