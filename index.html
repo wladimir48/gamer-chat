@@ -2,13 +2,10 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat v51.3 PRO — Real Voice Call</title>
-    
-    <!-- ЗАГРУЗКА БИБЛИОТЕК (С ЗАЩИТОЙ ) -->
+    <title>GamerChat v51.3 PRO — Real Voice</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
@@ -75,21 +72,17 @@
         const db = firebase.database();
         document.getElementById('display-nick').innerText = myName;
 
-        // Инициализация PeerJS (твой ID в сети — твой ник)
         peer = new Peer(myName.toLowerCase());
 
-        // Принимаем входящий звонок
         peer.on('call', (call) => {
             window.initAudio();
-            call.answer(myStream); // Отвечаем своим голосом
+            call.answer(myStream);
             call.on('stream', (remoteStream) => {
-                const callerName = call.peer;
-                renderCard(callerName);
-                visualize(remoteStream, callerName, true); // true — это чужой звук
+                renderCard(call.peer);
+                visualize(remoteStream, call.peer, true);
             });
         });
 
-        // ЧАТ
         const ui = document.getElementById('ui');
         ui.onkeydown = (e) => { if(e.key === 'Enter' && ui.value.trim()){ db.ref('global_chat').push({u:myName, t:ui.value}); ui.value=""; }};
         db.ref('global_chat').limitToLast(20).on('child_added', s => {
@@ -97,7 +90,6 @@
             document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         });
 
-        // Синхронизация: кто в голосе
         db.ref('voice_v12').on('value', s => {
             const data = s.val() || {};
             for(let user in data) { 
@@ -111,17 +103,13 @@
         try {
             const constraints = { audio: { deviceId: selectedMic === 'default' ? undefined : { exact: selectedMic } } };
             myStream = await navigator.mediaDevices.getUserMedia(constraints);
-            
             document.getElementById('btn-toggle').innerText = "В ЭФИРЕ";
             document.getElementById('btn-toggle').style.background = "var(--green)";
-            
             const myId = myName.toLowerCase();
             firebase.database().ref('voice_v12').child(myId).set({status: 'online'});
-            
             renderCard(myId);
-            visualize(myStream, myId, false); // false — это наш звук
+            visualize(myStream, myId, false);
 
-            // Звоним всем, кто уже в сети
             firebase.database().ref('voice_v12').once('value', (s) => {
                 const users = s.val();
                 for(let target in users) {
@@ -134,27 +122,30 @@
                     }
                 }
             });
-            
-            new Audio('https://wladimir4k.github.io/gamer-chat/icq.mp3'.replace(//g,'')).play().catch(()=>{});
+            new Audio('https://github.io').play().catch(()=>{});
         } catch (e) { alert("Ошибка микрофона!"); }
     };
 
     function renderCard(n) {
-        if(document.getElementById('card-'+n)) return;
+        if (document.getElementById('card-' + n)) return;
         document.getElementById('v-users').innerHTML += `<div class="v-u-card" id="card-${n}"><div>${n.toUpperCase()}</div><div class="vol-bar"><div class="vol-fill" id="vol-${n}"></div></div></div>`;
     }
 
     function visualize(stream, n, isRemote) {
-        const src = gCtx.createMediaStreamSource(stream);
-        const anz = gCtx.createAnalyser(); src.connect(anz);
-        
-        // ЕСЛИ ЭТО ЧУЖОЙ ЗВУК — ВЫВОДИМ ЕГО В ДИНАМИКИ
-        if(isRemote) {
-            const audio = new Audio();
+        if (isRemote) {
+            let audio = document.getElementById('audio-' + n);
+            if (!audio) {
+                audio = document.createElement('audio');
+                audio.id = 'audio-' + n;
+                document.body.appendChild(audio);
+            }
             audio.srcObject = stream;
-            audio.play();
+            audio.play().catch(e => console.error("Playback failed", e));
         }
 
+        const src = gCtx.createMediaStreamSource(stream);
+        const anz = gCtx.createAnalyser(); 
+        src.connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
         function loop() {
             const bar = document.getElementById('vol-' + n);
@@ -163,7 +154,8 @@
             let max = 0; for(let i=0; i<dat.length; i++) if(dat[i]>max) max=dat[i];
             let v = (max / 255) * 100;
             bar.style.width = Math.min(100, v * 5) + "%";
-            if(v > 5) document.getElementById('card-'+n).classList.add('speaking'); else document.getElementById('card-'+n).classList.remove('speaking');
+            if(v > 5) document.getElementById('card-' + n).classList.add('speaking'); 
+            else document.getElementById('card-' + n).classList.remove('speaking');
             requestAnimationFrame(loop);
         } loop();
     }
