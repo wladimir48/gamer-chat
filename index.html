@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat v51.3.2 PRO — Final Stable</title>
+    <title>GamerChat v51.3.2 PRO — Final Final</title>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
@@ -27,9 +27,9 @@
 
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0; text-align:center">⚙️ НАСТРОЙКИ ГОЛОСА</h3>
+        <h3 style="margin:0; text-align:center">⚙️ ГЕЙМЕР-НАСТРОЙКИ</h3>
         <input type="text" id="set-nick" placeholder="Никнейм" class="ui-input">
-        <label style="font-size: 11px;">MIC INDICATOR (EXTREME X450):</label>
+        <label style="font-size: 11px;">ИНДИКАТОР MIC (EXTREME X450):</label>
         <div style="background:#111; height:12px; border-radius:6px; overflow:hidden;"><div id="mic-test-bar"></div></div>
         <select id="mic-list" class="ui-input"></select>
         <button class="btn" onclick="window.saveSettings()">СОХРАНИТЬ</button>
@@ -54,7 +54,7 @@
 
 <script>
     "use strict";
-    let myName = localStorage.getItem('chat_nick') || "CREATIV_" + Math.floor(Math.random()*999);
+    let myName = localStorage.getItem('chat_nick') || "PLAYER_" + Math.floor(Math.random()*999);
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let gCtx = null, myStream = null, testStream = null, peer = null, db = null;
 
@@ -85,11 +85,11 @@
             call.on('stream', (rem) => { renderCard(call.peer); visualize(rem, call.peer, true); });
         });
 
-        db.ref('global_chat').limitToLast(25).on('child_added', s => {
-            const d = s.val(); 
-            const mid = 'msg-' + s.key;
-            if(d && !document.getElementById(mid)) {
-                document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div id="${mid}"><b>${d.u}:</b> ${d.t}</div>`);
+        db.ref('global_chat').limitToLast(30).on('child_added', s => {
+            const d = s.val();
+            const id = 'msg-' + s.key;
+            if(d && !document.getElementById(id)) {
+                document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div id="${id}"><b>${d.u}:</b> ${d.t}</div>`);
                 document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
             }
         });
@@ -109,12 +109,7 @@
         });
 
         const ui = document.getElementById('ui');
-        ui.onkeydown = (e) => { 
-            if(e.key === 'Enter' && ui.value.trim()){ 
-                db.ref('global_chat').push({u:myName, t:ui.value}); 
-                ui.value=""; 
-            }
-        };
+        ui.onkeydown = (e) => { if(e.key === 'Enter' && ui.value.trim()){ db.ref('global_chat').push({u:myName, t:ui.value}); ui.value=""; } };
     };
 
     window.joinVoice = async function() {
@@ -127,8 +122,7 @@
             const userRef = db.ref('voice_v12').child(myId);
             userRef.set({status: 'online'});
             userRef.onDisconnect().remove();
-            renderCard(myId);
-            visualize(myStream, myId, false);
+            renderCard(myId); visualize(myStream, myId, false);
             db.ref('voice_v12').once('value', (s) => {
                 const users = s.val();
                 for(let target in users) { if(target !== myId) { const call = peer.call(target, myStream); call.on('stream', (rem) => { renderCard(target); visualize(rem, target, true); }); } }
