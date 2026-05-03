@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v52.0.1</title>
+    <title>GamerChat PRO v52.1 — VOICE FIX</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -24,7 +24,6 @@
         .m-box { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 400px; display: flex; flex-direction: column; gap: 10px; }
         .ava-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 10px 0; }
         .ava-item { width: 50px; height: 50px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
-        .ava-active { border-color: var(--accent); }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .speaking-border { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); }
     </style>
@@ -72,7 +71,6 @@
 
 <script>
     "use strict";
-    // МАГИЯ: Автоматически берем адрес из строки браузера
     const socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
@@ -82,6 +80,7 @@
     
     let gCtx = new (window.AudioContext || window.webkitAudioContext)();
     let peer = null, myStream = null, isInVoice = false;
+    let activeCalls = {}; // Чтобы не звонить дважды
 
     const emojis = ['😊','😂','😎','🔥','🎮','💀','🤖','👾','👻','👑','💎','👍','🚀','💢','🤡'];
     const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+123}`);
@@ -92,15 +91,28 @@
     };
 
     async function setupPeer() {
-        peer = new Peer(undefined, { host: 'metered.relay', port: 443, secure: true, path: '/peerjs' });
+        // РЕМОНТ: Используем Google STUN сервер
+        peer = new Peer(undefined, {
+            config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] },
+            debug: 1
+        });
+
+        peer.on('open', id => {
+            console.log('Peer ID Ожил:', id);
+            socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: isInVoice, pID: id });
+        });
+
         peer.on('call', call => {
+            console.log('Принимаю входящий звонок...');
             call.answer(myStream);
             call.on('stream', rem => {
                 const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
             });
         });
+
         const devs = await navigator.mediaDevices.enumerateDevices();
         const sel = document.getElementById('audio-in');
+        sel.innerHTML = "";
         devs.filter(d => d.kind === 'audioinput').forEach(d => {
             sel.insertAdjacentHTML('beforeend', `<option value="${d.deviceId}">${d.label || 'Mic ' + (sel.length+1)}</option>`);
         });
@@ -127,8 +139,19 @@
         for(let id in users) {
             count++; const u = users[id];
             uL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; color:${u.color}"><img src="${u.ava}" style="width:20px; border-radius:50%"> ${u.name}</div>`);
+            
             if(u.inVoice) {
                 vL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px"><div style="text-align:center"><img src="${u.ava}" style="width:32px; border-radius:50%; border:2px solid ${u.isSpeaking?'var(--green)':'transparent'}" class="${u.isSpeaking?'speaking-border':''}"><div class="mic-mini-bar"><div class="mic-mini-fill" id="mic-v-${id}"></div></div></div><span style="font-size:13px; color:${u.color}">${u.name}</span></div>`);
+                
+                // РЕМОНТ: АВТО-ДОЗВОН
+                if(isInVoice && u.pID && id !== socket.id && !activeCalls[id]) {
+                    console.log('Звоню другу:', u.name);
+                    const call = peer.call(u.pID, myStream);
+                    activeCalls[id] = call;
+                    call.on('stream', rem => {
+                        const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
+                    });
+                }
             }
         }
         document.getElementById('u-count').innerText = `В СЕТИ — ${count}`;
@@ -147,6 +170,7 @@
                 myStream = await navigator.mediaDevices.getUserMedia({ audio: devId ? { deviceId: { exact: devId } } : true });
                 isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
                 socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true, pID: peer.id });
+                
                 const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
                 src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
                 function loop() {
@@ -158,7 +182,7 @@
                     socket.emit('speaking', vol > mySens);
                     requestAnimationFrame(loop);
                 } loop();
-            } catch(e) { alert("Ошибка мика!"); }
+            } catch(e) { alert("Микрофон заблокирован!"); }
         } else { location.reload(); }
     }
 
