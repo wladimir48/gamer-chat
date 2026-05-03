@@ -2,17 +2,21 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v51.3.2 — Admin Panel</title>
-    <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+    <title>GamerChat PRO v51.3.2</title>
+    <!-- ПОДКЛЮЧЕНИЕ ЧЕРЕЗ ТВОЙ ЛОКАЛЬНЫЙ IP -->
+    <script src="http://192.168.0.101:3000/socket.io/socket.io.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; }
-        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .admin-btn { background: var(--red); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-top: 10px; display: none; }
-        .ui-input { width:100%; padding:10px; background:#383a40; border:none; color:white; border-radius:5px; outline: none; }
+        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
+        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
+        .input-area { padding: 20px; }
+        #ui { width: 100%; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
+        .admin-panel { padding: 10px; background: rgba(237, 66, 69, 0.1); border-top: 1px solid var(--red); display: none; }
+        .btn-red { background: var(--red); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
+        .v-user { padding: 5px 15px; color: #949ba4; font-size: 14px; display: flex; align-items: center; gap: 8px; }
     </style>
 </head>
 <body onclick="if(gCtx)gCtx.resume()">
@@ -20,76 +24,103 @@
 <div class="col-channels">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">🔊 GamerChat CONTROL</div>
     <div style="flex:1; padding:15px">
-        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; color:#949ba4">🔈 Войти в голос</div>
-        <div id="v-list" style="margin-top:10px"></div>
-        
-        <!-- КНОПКА ТОЛЬКО ДЛЯ ТЕБЯ -->
-        <button id="admin-clear" class="admin-btn" onclick="clearChat()">ОЧИСТИТЬ ВЕСЬ ЧАТ</button>
+        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; padding:10px 0; color:#949ba4; font-weight:bold">🔈 Войти в Голос</div>
+        <div id="voice-list"></div>
     </div>
-    <div style="padding:15px; background:#232428"><b id="my-nick">...</b></div>
+    
+    <div id="admin-box" class="admin-panel">
+        <button class="btn-red" onclick="adminClear()">ОЧИСТИТЬ ВСЁ</button>
+    </div>
+
+    <div style="padding:15px; background:#232428; display:flex; justify-content:space-between">
+        <span id="display-nick" style="font-weight:bold">...</span>
+        <span style="cursor:pointer" onclick="location.reload()">🔄</span>
+    </div>
 </div>
 
 <div class="col-chat">
     <div id="msgs"></div>
-    <div style="padding:20px"><input type="text" id="ui" class="ui-input" placeholder="Написать..."></div>
+    <div class="input-area"><input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off"></div>
 </div>
 
 <script>
     "use strict";
-    const socket = io('http://localhost:3000'); 
-    
-    // ТВОЙ НИК — КЛЮЧ К УПРАВЛЕНИЮ
-    let myName = localStorage.getItem('chat_nick') || "Вован"; 
-    let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, isInVoice = false;
+    // ПОДКЛЮЧЕНИЕ К СЕРВЕРУ
+    const socket = io('http://192.168.0.101:3000');
+    let myName = localStorage.getItem('chat_nick') || "Вован";
+    let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
 
-    document.getElementById('my-nick').innerText = myName;
+    document.getElementById('display-nick').innerText = myName;
 
-    // ПРОВЕРКА НА АДМИНА
+    // ПРОВЕРКА АДМИНА
     if (myName.toLowerCase() === "вован") {
-        document.getElementById('admin-clear').style.display = "block";
+        document.getElementById('admin-box').style.display = "block";
     }
 
-    // ЛОГИКА УПРАВЛЕНИЯ (ОЧИСТКА)
-    function clearChat() {
-        if(confirm("Удалить всю историю сообщений для ВСЕХ?")) {
-            socket.emit('admin clear');
-        }
-    }
-
-    socket.on('chat cleared', () => {
-        document.getElementById('msgs').innerHTML = "<i>Чат был очищен администратором</i>";
+    // ГОЛОСОВОЙ ДВИЖОК (PEERJS)
+    peer = new Peer(myName.toLowerCase().replace(/[^a-z]/g,''), {
+        host: '0.peerjs.com', port: 443, secure: true, path: '/'
     });
 
-    // ОБЫЧНЫЙ ЧАТ
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => { 
-        if(e.key === 'Enter' && ui.value.trim()){ 
-            socket.emit('chat message', { u: myName, t: ui.value }); 
-            ui.value = ""; 
-        } 
-    };
-    
-    socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b>${d.u}:</b> ${d.t}</div>`);
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    peer.on('call', (call) => {
+        call.answer(myStream);
+        call.on('stream', (rem) => {
+            const audio = document.createElement('audio');
+            audio.srcObject = rem; audio.autoplay = true;
+            document.body.appendChild(audio);
+        });
     });
 
-    // ГОЛОС
     async function toggleVoice() {
         if (!isInVoice) {
             try {
                 myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 isInVoice = true;
                 document.getElementById('v-btn').style.color = 'var(--green)';
+                document.getElementById('v-btn').innerText = "🔊 В ЭФИРЕ";
                 socket.emit('user join', { name: myName, inVoice: true });
-            } catch(e) { alert("Включи микрофон!"); }
+                socket.emit('get voice users');
+            } catch(e) { alert("Ошибка микрофона!"); }
         } else { location.reload(); }
     }
 
-    socket.on('update users', users => {
-        const list = document.getElementById('v-list');
-        list.innerHTML = "";
-        for(let id in users) if(users[id].inVoice) list.insertAdjacentHTML('beforeend', `<div style="color:#949ba4">● ${users[id].name}</div>`);
+    socket.on('call users', (users) => {
+        for (let id in users) {
+            if (users[id].name.toLowerCase() !== myName.toLowerCase()) {
+                const call = peer.call(users[id].name.toLowerCase(), myStream);
+                call.on('stream', (rem) => {
+                    const audio = document.createElement('audio');
+                    audio.srcObject = rem; audio.autoplay = true;
+                    document.body.appendChild(audio);
+                });
+            }
+        }
+    });
+
+    // ЧАТ И АДМИНКА
+    const ui = document.getElementById('ui');
+    ui.onkeydown = (e) => {
+        if(e.key === 'Enter' && ui.value.trim()){
+            socket.emit('chat message', { u: myName, t: ui.value });
+            ui.value = "";
+        }
+    };
+
+    function adminClear() {
+        if(confirm("Удалить историю сообщений?")) socket.emit('admin clear');
+    }
+
+    socket.on('chat message', d => {
+        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b>${d.u}:</b> ${d.t}</div>`);
+        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    });
+
+    socket.on('chat cleared', () => { document.getElementById('msgs').innerHTML = "<i>Чат очищен админом</i>"; });
+
+    socket.on('update users', (users) => {
+        const vList = document.getElementById('voice-list');
+        vList.innerHTML = "";
+        for(let id in users) if(users[id].inVoice) vList.insertAdjacentHTML('beforeend', `<div class="v-user">● ${users[id].name}</div>`);
     });
 
     socket.emit('user join', { name: myName, inVoice: false });
