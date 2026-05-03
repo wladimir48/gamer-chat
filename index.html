@@ -46,7 +46,7 @@
 <script>
     "use strict";
     // ПОДКЛЮЧЕНИЕ К СЕРВЕРУ
-    const socket = io('http://localhost:3000');
+    const socket = io('http://192.168.0.101:3000');
     let myName = localStorage.getItem('chat_nick') || "Вован";
     let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
 
