@@ -2,44 +2,52 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v51.6.1 — Voice Fix</title>
+    <title>GamerChat PRO v51.6.2 — MIC REPAIR</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
         .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid #111; }
         .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
         .col-users { width: 230px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-left: 1px solid #111; padding: 15px; }
+
         .my-profile-top { padding: 15px; background: #232428; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #111; }
         .u-ava { width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 2px solid transparent; position: relative; }
+        
+        /* ТВОЯ ПОЛОСКА */
         .mic-mini-bar { width: 32px; height: 4px; background: #111; border-radius: 2px; margin-top: 4px; overflow: hidden; }
-        .mic-mini-fill { height: 100%; width: 0%; background: var(--green); transition: 0.02s; }
+        .mic-mini-fill { height: 100%; width: 0%; background: var(--green); transition: 0.03s; }
+
         #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
         .emoji-bar { padding: 8px 20px; background: rgba(0,0,0,0.1); display: flex; gap: 10px; overflow-x: auto; }
         .emoji-item { cursor: pointer; font-size: 20px; }
         .input-area { padding: 15px 20px 25px; }
         #ui { width: 100%; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
+        
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 999; }
         .m-box { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 400px; display: flex; flex-direction: column; gap: 10px; }
         .ava-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 10px 0; }
         .ava-item { width: 50px; height: 50px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
         .ava-active { border-color: var(--accent); }
+        
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-sidebar); position: absolute; bottom: 0; right: 0; background: var(--green); }
+        .speaking-border { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); }
     </style>
 </head>
-<body onclick="if(window.gCtx)gCtx.resume()">
+<body onclick="if(window.gCtx) { gCtx.resume(); console.log('AudioContext Resumed'); }">
 
 <div id="modal">
     <div class="m-box">
-        <h3 style="margin:0; text-align:center">⚙️ НАСТРОЙКИ</h3>
-        <label style="font-size:11px">НИК:</label><input type="text" id="in-nick" style="padding:10px; background:#1e1f22; color:white; border:none; border-radius:4px">
+        <h3 style="margin:0; text-align:center">⚙️ ГЕРМЕТИЧНЫЕ НАСТРОЙКИ</h3>
+        <label style="font-size:11px">НИК:</label><input type="text" id="in-nick" style="padding:10px; background:#1e1f22; color:white; border:none">
         <label style="font-size:11px">ЦВЕТ:</label><input type="color" id="in-color" style="width:100%; height:30px; border:none; background:none">
         <label style="font-size:11px">АВАТАР:</label><div class="ava-grid" id="ava-picker"></div>
         <label style="font-size:11px">ЧУВСТВИТЕЛЬНОСТЬ: <span id="sens-val">10</span></label>
         <input type="range" id="in-sens" min="1" max="100" value="10" style="width:100%" oninput="document.getElementById('sens-val').innerText=this.value">
-        <button class="btn" onclick="saveSets()">СОХРАНИТЬ</button>
+        <button class="btn" onclick="saveSets()">СОХРАНИТЬ (БЕЗ ПЕРЕЗАГРУЗКИ)</button>
         <button class="btn" style="background:var(--red)" onclick="adminClear()">ОЧИСТИТЬ ЧАТ</button>
         <button onclick="document.getElementById('modal').style.display='none'" style="background:none; color:gray; border:none; cursor:pointer">Отмена</button>
     </div>
@@ -76,12 +84,14 @@
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
     let myColor = localStorage.getItem('chat_color') || "#ffffff";
-    let myAva = localStorage.getItem('chat_ava') || "https://api.dicebear.com/7.x/pixel-art/svg?seed=1";
+    let myAva = localStorage.getItem('chat_ava') || "https://api.dicebear.com/7.x/pixel-art/svg?seed=77";
     let mySens = localStorage.getItem('chat_sens') || 10;
-    let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, isInVoice = false;
+    
+    let gCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let myStream = null, isInVoice = false;
 
     const emojis = ['😊','😂','😎','🔥','🎮','💀','🤖','👾','👻','👑','💎','👍','🚀','💢','🤡'];
-    const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+77}`);
+    const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+123}`);
 
     window.onload = () => { 
         updateUI(); 
@@ -104,7 +114,7 @@
         });
     }
 
-    async function openSets() {
+    function openSets() {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('in-nick').value = myName;
         document.getElementById('in-color').value = myColor;
@@ -132,24 +142,36 @@
 
     async function toggleVoice() {
         if (!isInVoice) {
-            // ВОЗВРАЩАЕМ ПРОСТОЙ ЗАХВАТ - ОН САМЫЙ НАДЕЖНЫЙ
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            isInVoice = true; 
-            document.getElementById('v-btn').style.color = 'var(--green)';
-            document.getElementById('v-btn').innerText = "🔊 В ЭФИРЕ";
-            socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true });
-            
-            const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
-            src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
-            function loop() {
-                if(!isInVoice) return;
-                anz.getByteFrequencyData(dat);
-                let vol = (Math.max(...dat)/255)*100;
-                const fill = document.getElementById('mic-v-' + socket.id);
-                if(fill) fill.style.width = vol + "%";
-                socket.emit('speaking', vol > mySens);
-                requestAnimationFrame(loop);
-            } loop();
+            try {
+                if (gCtx.state === 'suspended') await gCtx.resume();
+                myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isInVoice = true; 
+                document.getElementById('v-btn').style.color = 'var(--green)';
+                document.getElementById('v-btn').innerText = "🔊 В ЭФИРЕ";
+                
+                socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true });
+
+                const src = gCtx.createMediaStreamSource(myStream);
+                const anz = gCtx.createAnalyser();
+                anz.fftSize = 256;
+                src.connect(anz);
+                const dat = new Uint8Array(anz.frequencyBinCount);
+
+                function loop() {
+                    if(!isInVoice) return;
+                    anz.getByteFrequencyData(dat);
+                    let vol = (Math.max(...dat)/255)*100;
+                    
+                    // ПОИСК ПОЛОСКИ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+                    const fill = document.getElementById('mic-v-' + socket.id);
+                    if(fill) {
+                        fill.style.width = vol + "%";
+                    }
+                    
+                    socket.emit('speaking', vol > mySens);
+                    requestAnimationFrame(loop);
+                } loop();
+            } catch(e) { alert("Микрофон не отвечает!"); }
         } else { location.reload(); }
     }
 
@@ -160,7 +182,17 @@
             const u = users[id]; count++;
             uL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:10px; margin-bottom:10px"><div class="u-ava"><img src="${u.ava}" style="width:100%; border-radius:50%"><div class="status-dot"></div></div><b style="color:${u.color}">${u.name}</b></div>`);
             if(u.inVoice) {
-                vL.innerHTML += `<div style="display:flex; align-items:center; gap:10px; padding:5px 0"><div style="display:flex; flex-direction:column; align-items:center"><img src="${u.ava}" style="width:32px; border-radius:50%; border:2px solid ${u.isSpeaking?'var(--green)':'transparent'}"><div class="mic-mini-bar"><div class="mic-mini-fill" id="mic-v-${id}"></div></div></div><span style="font-size:13px; color:${u.color}">${u.name}</span></div>`;
+                // ВАЖНО: ID ДОЛЖЕН СОВПАДАТЬ С ТЕМ, ЧТО ИЩЕТ LOOP
+                vL.insertAdjacentHTML('beforeend', `
+                    <div style="display:flex; align-items:center; gap:10px; padding:5px 0">
+                        <div style="display:flex; flex-direction:column; align-items:center">
+                            <img src="${u.ava}" style="width:32px; border-radius:50%; border:2px solid ${u.isSpeaking?'var(--green)':'transparent'}" class="${u.isSpeaking?'speaking-border':''}">
+                            <div class="mic-mini-bar">
+                                <div class="mic-mini-fill" id="mic-v-${id}"></div>
+                            </div>
+                        </div>
+                        <span style="font-size:13px; color:${u.color}">${u.name}</span>
+                    </div>`);
             }
         }
         document.getElementById('u-count').innerText = `В СЕТИ — ${count}`;
