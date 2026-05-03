@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v53.0 — TOTAL CONTROL</title>
+    <title>GamerChat PRO v56.0 — PLAYIT EDITION</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -71,8 +71,9 @@
 
 <script>
     "use strict";
-    // МАГИЯ: Один адрес для чата и звонков
-    const socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
+    // ПОДКЛЮЧЕНИЕ ЧЕРЕЗ PLAYIT
+    const playitAddr = 'link-given.gl.at.ply.gg:16200';
+    const socket = io('http://' + playitAddr, { transports: ['polling'] });
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
     let myColor = localStorage.getItem('chat_color') || "#ffffff";
@@ -87,24 +88,22 @@
     const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+123}`);
 
     window.onload = () => { 
-        updateUI(); renderEmojis(); 
+        updateUI(); renderEmojis(); setupPeer();
         socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: false });
-        setupPeer(); // Запускаем свой Peer-клиент
     };
 
     async function setupPeer() {
-        // РЕМОНТ: Стучимся на СВОЙ сервер /peerjs
+        // НАСТРОЙКА PEER ЧЕРЕЗ PLAYIT
         peer = new Peer(undefined, {
-            host: window.location.hostname,
-            port: window.location.port || (window.location.protocol === 'https:' ? 443 : 80),
+            host: 'link-given.gl.at.ply.gg',
+            port: 16200,
             path: '/peerjs',
-            secure: window.location.protocol === 'https:',
             debug: 1,
             config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] }
         });
 
         peer.on('open', id => {
-            console.log('МОЙ ЛОКАЛЬНЫЙ ID:', id);
+            console.log('ID ПОЛУЧЕН:', id);
             socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: isInVoice, pID: id });
         });
 
@@ -129,11 +128,8 @@
         for(let id in users) {
             count++; const u = users[id];
             uL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; color:${u.color}"><img src="${u.ava}" style="width:20px; border-radius:50%"> ${u.name}</div>`);
-            
             if(u.inVoice) {
                 vL.insertAdjacentHTML('beforeend', `<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px"><div style="text-align:center"><img src="${u.ava}" style="width:32px; border-radius:50%; border:2px solid ${u.isSpeaking?'var(--green)':'transparent'}" class="${u.isSpeaking?'speaking-border':''}"><div class="mic-mini-bar"><div class="mic-mini-fill" id="mic-v-${id}"></div></div></div><span style="font-size:13px; color:${u.color}">${u.name}</span></div>`);
-                
-                // Звоним соседу, если мы в голосе и у него есть ID
                 if(isInVoice && u.pID && id !== socket.id && !activeCalls[id]) {
                     const call = peer.call(u.pID, myStream);
                     activeCalls[id] = call;
@@ -154,7 +150,6 @@
                 myStream = await navigator.mediaDevices.getUserMedia({ audio: devId ? { deviceId: { exact: devId } } : true });
                 isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
                 socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true, pID: peer.id });
-                
                 const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
                 src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
                 function loop() {
@@ -166,11 +161,10 @@
                     socket.emit('speaking', vol > mySens);
                     requestAnimationFrame(loop);
                 } loop();
-            } catch(e) { alert("Ошибка микрофона!"); }
+            } catch(e) { alert("Ошибка мика!"); }
         } else { location.reload(); }
     }
 
-    // ... (остальные функции saveSets, openSets, renderEmojis без изменений) ...
     function openSets() {
         document.getElementById('modal').style.display = 'flex';
         const p = document.getElementById('ava-picker'); p.innerHTML = "";
@@ -181,6 +175,7 @@
             p.appendChild(img);
         });
     }
+
     function saveSets() {
         myName = document.getElementById('in-nick').value;
         myColor = document.getElementById('in-color').value;
@@ -191,11 +186,13 @@
         localStorage.setItem('chat_sens', mySens);
         location.reload();
     }
+    
     function updateUI() {
         document.getElementById('my-nick').innerText = myName;
         document.getElementById('my-nick').style.color = myColor;
         document.getElementById('my-ava-img').src = myAva;
     }
+
     function renderEmojis() {
         const bar = document.getElementById('emoji-list'); bar.innerHTML = "";
         emojis.forEach(e => {
@@ -204,6 +201,12 @@
             bar.appendChild(s);
         });
     }
+
+    socket.on('chat message', d => {
+        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b style="color:${d.c}">${d.u}:</b> ${d.t}</div>`);
+        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    });
+
     document.getElementById('ui').onkeydown = (e) => { 
         if(e.key === 'Enter' && e.target.value.trim()){ 
             socket.emit('chat message', { u: myName, t: e.target.value, c: myColor }); 
