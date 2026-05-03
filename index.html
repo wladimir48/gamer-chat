@@ -2,49 +2,67 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat v51.2 PRO — Voice Fix</title>
-    <!-- ПРАВИЛЬНЫЙ ПОРЯДОК ЗАГРУЗКИ -->
-    <script src="https://://gstatic.com"></script>
-    <script src="https://://gstatic.com"></script>
+    <title>GamerChat v51.2 PRO — Final Audio Fix</title>
+    
+    <!-- ПОДКЛЮЧЕНИЕ FIREBASE (ЗАЩИЩЕНО ТИЛЬДОЙ) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
     <style>
-        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --text: #dbdee1; }
+        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
         .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
         .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
+        
+        /* Карточки участников */
         .v-u-card { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin: 5px 10px; border: 2px solid transparent; transition: 0.2s; }
         .speaking { border-color: var(--green) !important; box-shadow: 0 0 12px var(--green); transform: scale(1.02); }
+        
+        /* Полоска громкости */
         .vol-bar { width: 100%; height: 8px; background: #111; border-radius: 4px; margin-top: 5px; overflow: hidden; }
         .vol-fill { width: 0%; height: 100%; background: var(--green); transition: 0.05s; }
+
+        /* Модальное окно настроек */
         #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; display: none; align-items: center; justify-content: center; }
         .m-content { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 15px; }
         #mic-test-bar { height: 12px; background: var(--green); width: 0%; border-radius: 6px; transition: 0.04s; }
-        .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+
+        .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .ui-input { width: 100%; padding: 12px; background: #383a40; color: white; border: none; border-radius: 8px; outline: none; }
+        .ui-input { width: 100%; padding: 12px; background: #383a40; color: white; border: none; border-radius: 8px; outline: none; box-sizing: border-box; }
     </style>
 </head>
 <body onclick="initAudio()">
 
+<!-- МОДАЛКА НАСТРОЕК -->
 <div id="modal">
     <div class="m-content">
-        <h3 style="margin:0">НАСТРОЙКИ ЗВУКА</h3>
+        <h3 style="margin:0; text-align:center">⚙️ НАСТРОЙКИ PRO</h3>
         <label>Ваш ник:</label>
         <input type="text" id="set-nick" style="padding:10px; background:#1e1f22; color:white; border:none; border-radius:4px;">
-        <label>Чувствительность (v*450):</label>
-        <div style="background:#111; height:12px; border-radius:6px;"><div id="mic-test-bar"></div></div>
+        
+        <label>Индикатор (v*450):</label>
+        <div style="background:#111; height:12px; border-radius:6px; overflow:hidden;">
+            <div id="mic-test-bar"></div>
+        </div>
+        
         <label>Выбор микрофона:</label>
-        <select id="mic-list" style="padding:10px; background:#1e1f22; color:white; border:none; border-radius:4px;"></select>
+        <select id="mic-list" style="padding:10px; background:#1e1f22; color:white; border:none; border-radius:4px; width:100%"></select>
+        
         <button class="btn" onclick="saveSettings()">СОХРАНИТЬ И ОБНОВИТЬ</button>
-        <button class="btn" style="background:#4f545c" onclick="closeSettings()">ЗАКРЫТЬ</button>
+        <button class="btn" style="background:#4f545c; margin-top:5px;" onclick="closeSettings()">ЗАКРЫТЬ</button>
     </div>
 </div>
 
 <div class="col-channels">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">GamerChat v51.2 PRO</div>
+    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222; font-size:14px;">🔊 GamerChat v51.2 PRO</div>
     <div id="v-users" style="flex:1; overflow-y:auto; padding-top:10px;"></div>
+    
     <div style="padding:10px">
-        <button id="btn-toggle" class="btn" style="width:100%" onclick="joinVoice()">ВОЙТИ В ГОЛОС</button>
+        <button id="btn-toggle" class="btn" onclick="joinVoice()">ВОЙТИ В ГОЛОС</button>
     </div>
+
     <div style="padding:15px; background:#232428; display:flex; justify-content:space-between; align-items:center">
         <span id="display-nick" style="font-weight:bold">Загрузка...</span>
         <span onclick="openSettings()" style="cursor:pointer; font-size:20px">⚙️</span>
@@ -54,7 +72,7 @@
 <div class="col-chat">
     <div id="msgs"></div>
     <div style="padding:20px">
-        <input type="text" id="ui" class="ui-input" placeholder="Написать сообщение...">
+        <input type="text" id="ui" class="ui-input" placeholder="Написать сообщение в #general...">
     </div>
 </div>
 
@@ -63,6 +81,7 @@
     let selectedMic = localStorage.getItem('chat_mic') || 'default';
     let gCtx = null, myStream = null, testStream = null;
 
+    // КОНФИГУРАЦИЯ БАЗЫ (ЗАЩИЩЕНО ТИЛЬДОЙ)
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
         databaseURL: "https://gamerchat-7a857-default-rtdb.firebaseio.com",
@@ -73,90 +92,131 @@
         if (gCtx.state === 'suspended') gCtx.resume();
     }
 
-    // ЗАПУСК ПРИЛОЖЕНИЯ
+    // СТАРТ ПРИЛОЖЕНИЯ
     window.onload = () => {
-        if (typeof firebase === 'undefined') return alert("Ошибка: Firebase не загружен. Удали тильды!");
+        if (typeof firebase === 'undefined') {
+            alert("КРИТИЧЕСКАЯ ОШИБКА: Firebase не загружен! Проверь ссылки и удали тильды ");
+            return;
+        }
         firebase.initializeApp(cfg);
         const db = firebase.database();
         
         document.getElementById('display-nick').innerText = myName;
         
-        // Чат
+        // ЧАТ ЛОГИКА
         const ui = document.getElementById('ui');
-        ui.onkeydown = (e) => { if(e.key==='Enter' && ui.value.trim()){ db.ref('global_chat').push({u:myName, t:ui.value}); ui.value=""; }};
+        ui.onkeydown = (e) => { 
+            if(e.key === 'Enter' && ui.value.trim()){ 
+                db.ref('global_chat').push({u: myName, t: ui.value}); 
+                ui.value = ""; 
+            }
+        };
+
         db.ref('global_chat').limitToLast(25).on('child_added', s => {
             const d = s.val(); 
             document.getElementById('msgs').innerHTML += `<div><b style="color:var(--accent)">${d.u}:</b> ${d.t}</div>`;
             document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
         });
 
-        // Синхронизация голоса (видим других)
+        // СИНХРОНИЗАЦИЯ ГОЛОСОВЫХ КАНАЛОВ
         db.ref('voice_v12').on('value', s => {
             const container = document.getElementById('v-users');
             const data = s.val() || {};
-            // Если нас нет в списке, но мы нажали войти - карточка создастся в joinVoice
-            for(let user in data) { if(!document.getElementById('card-'+user)) renderCard(user); }
+            for(let user in data) { 
+                if(!document.getElementById('card-' + user)) renderCard(user); 
+            }
         });
     };
 
+    // НАСТРОЙКИ И ТЕСТ МИКРОФОНА
     async function openSettings() {
         document.getElementById('modal').style.display = 'flex';
         document.getElementById('set-nick').value = myName;
         
         const devs = await navigator.mediaDevices.enumerateDevices();
-        const list = document.getElementById('mic-list'); list.innerHTML = "";
+        const list = document.getElementById('mic-list'); 
+        list.innerHTML = "";
         
-        devs.forEach(d => { if(d.kind==='audioinput') {
-            const opt = document.createElement('option');
-            opt.value = d.deviceId; opt.text = d.label || 'Микрофон ' + (list.length+1);
-            if(d.deviceId === selectedMic) opt.selected = true;
-            list.appendChild(opt);
-        }});
+        devs.forEach(d => { 
+            if(d.kind === 'audioinput') {
+                const opt = document.createElement('option');
+                opt.value = d.deviceId; 
+                opt.text = d.label || 'Микрофон ' + (list.length + 1);
+                if(d.deviceId === selectedMic) opt.selected = true;
+                list.appendChild(opt);
+            }
+        });
 
-        list.onchange = () => { selectedMic = list.value; startMicTest(selectedMic); };
+        list.onchange = () => { 
+            selectedMic = list.value; 
+            startMicTest(selectedMic); 
+        };
         startMicTest(selectedMic);
     }
 
     async function startMicTest(id) {
-        if(testStream) testStream.getTracks().forEach(t=>t.stop()); // Убиваем старый поток!
+        // Жестко убиваем старый поток перед тестом!
+        if(testStream) testStream.getTracks().forEach(t => t.stop()); 
+        
         try {
-            const constraints = { audio: { deviceId: id === 'default' ? undefined : { exact: id } } };
+            const constraints = { 
+                audio: { deviceId: id === 'default' ? undefined : { exact: id } } 
+            };
             testStream = await navigator.mediaDevices.getUserMedia(constraints);
             initAudio();
+            
             const src = gCtx.createMediaStreamSource(testStream);
-            const anz = gCtx.createAnalyser(); anz.fftSize = 256; src.connect(anz);
+            const anz = gCtx.createAnalyser(); 
+            anz.fftSize = 256; 
+            src.connect(anz);
+            
             const dat = new Uint8Array(anz.frequencyBinCount);
             
             function loop() {
                 if (document.getElementById('modal').style.display === 'none') return;
                 anz.getByteFrequencyData(dat);
-                let max = 0; for(let i=0; i<dat.length; i++) if(dat[i]>max) max=dat[i];
-                // Индикатор
+                let max = 0; 
+                for(let i=0; i < dat.length; i++) if(dat[i] > max) max = dat[i];
+                
+                // РЕАКЦИЯ ИНДИКАТОРА
                 document.getElementById('mic-test-bar').style.width = Math.min(100, (max / 255) * 450) + "%";
                 requestAnimationFrame(loop);
-            } loop();
-        } catch(e) { console.error("Микрофон не захвачен"); }
+            } 
+            loop();
+        } catch(e) { 
+            console.error("Микрофон не отвечает. Возможно, используется другим приложением."); 
+        }
     }
 
     async function joinVoice() {
         initAudio();
-        if(myStream) myStream.getTracks().forEach(t=>t.stop()); // Перезапуск
+        if(myStream) myStream.getTracks().forEach(t => t.stop()); // Перезапуск потока
+        
         try {
-            const constraints = { audio: { deviceId: selectedMic === 'default' ? undefined : { exact: selectedMic } } };
+            const constraints = { 
+                audio: { deviceId: selectedMic === 'default' ? undefined : { exact: selectedMic } } 
+            };
             myStream = await navigator.mediaDevices.getUserMedia(constraints);
-            document.getElementById('btn-toggle').innerText = "В ЭФИРЕ";
-            document.getElementById('btn-toggle').style.background = "var(--green)";
+            
+            const btn = document.getElementById('btn-toggle');
+            btn.innerText = "В ЭФИРЕ";
+            btn.style.background = "var(--green)";
             
             firebase.database().ref('voice_v12').child(myName).set({status: 'online'});
             renderCard(myName);
             visualize(myStream, myName);
             
-            new Audio('https://wladimir4k.github.io/gamer-chat/icq.mp3').play().catch(()=>{});
-        } catch (e) { alert("Ошибка доступа к микрофону!"); }
+            // ЗВУК ICQ (ЗАЩИЩЕНО ТИЛЬДОЙ)
+            const audioPath = 'https://wladimir4k.github.io/gamer-chat/icq.mp3';
+            new Audio(audioPath.replace(//g, '')).play().catch(()=>{});
+
+        } catch (e) { 
+            alert("Ошибка: микрофон недоступен. Проверьте разрешения в браузере."); 
+        }
     }
 
     function renderCard(n) {
-        if(document.getElementById('card-'+n)) return;
+        if(document.getElementById('card-' + n)) return;
         document.getElementById('v-users').innerHTML += `
             <div class="v-u-card" id="card-${n}">
                 <div style="font-size:14px; font-weight:bold">${n}</div>
@@ -165,29 +225,41 @@
     }
 
     function visualize(stream, n) {
-        const src = gCtx.createMediaStreamSource(stream), anz = gCtx.createAnalyser(); src.connect(anz);
+        const src = gCtx.createMediaStreamSource(stream);
+        const anz = gCtx.createAnalyser(); 
+        src.connect(anz);
         const dat = new Uint8Array(anz.frequencyBinCount);
+        
         function loop() {
-            const bar = document.getElementById('vol-'+n);
-            const card = document.getElementById('card-'+n);
+            const bar = document.getElementById('vol-' + n);
+            const card = document.getElementById('card-' + n);
             if(!bar) return;
+            
             anz.getByteFrequencyData(dat);
-            let max = 0; for(let i=0; i<dat.length; i++) if(dat[i]>max) max=dat[i];
+            let max = 0; 
+            for(let i=0; i < dat.length; i++) if(dat[i] > max) max = dat[i];
+            
             let v = (max / 255) * 100;
-            bar.style.width = Math.min(100, v*3) + "%";
-            if(v > 8) card.classList.add('speaking'); else card.classList.remove('speaking');
+            bar.style.width = Math.min(100, v * 3) + "%";
+            
+            if(v > 8) card.classList.add('speaking'); 
+            else card.classList.remove('speaking');
+            
             requestAnimationFrame(loop);
-        } loop();
+        } 
+        loop();
     }
 
     function saveSettings() {
-        localStorage.setItem('chat_nick', document.getElementById('set-nick').value);
+        const nick = document.getElementById('set-nick').value;
+        localStorage.setItem('chat_nick', nick);
         localStorage.setItem('chat_mic', selectedMic);
-        location.reload(); // Перезагрузка для чистоты захвата
+        location.reload(); 
     }
+
     function closeSettings() { 
         document.getElementById('modal').style.display = 'none'; 
-        if(testStream) testStream.getTracks().forEach(t=>t.stop()); 
+        if(testStream) testStream.getTracks().forEach(t => t.stop()); 
     }
 </script>
 </body>
