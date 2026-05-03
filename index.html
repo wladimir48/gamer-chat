@@ -1,119 +1,118 @@
+const express = require("express");
+const app = express();
+const http = require("http").Server(app);
+const io = require("socket.io")(http);
+const { ExpressPeerServer } = require("peer");
+
+// Раздаем чат и голос из одного места
+app.use("/peerjs", ExpressPeerServer(http, { debug: true, path: "/" }));
+
+app.get("/", (req, res) => {
+  res.send(`
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v57.0 — UNIVERSAL</title>
+    <title>GamerChat PRO — FINAL</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --accent: #5865f2; --green: #23a559; --text: #dbdee1; }
-        body { background: #1e1f22; color: var(--text); font-family: sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; }
-        .input-area { padding: 20px; }
-        #ui { width: 100%; padding: 10px; background: #383a40; border: none; border-radius: 5px; color: white; }
-        .u-list { width: 200px; background: #2b2d31; padding: 15px; border-left: 1px solid #111; }
+        body { background: #313338; color: #dbdee1; font-family: sans-serif; margin: 0; display: flex; height: 100vh; }
+        .side { width: 220px; background: #2b2d31; padding: 20px; border-right: 1px solid #111; }
+        .main { flex: 1; display: flex; flex-direction: column; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; font-size: 14px; }
+        .input { padding: 20px; background: #313338; }
+        input { width: 100%; padding: 12px; background: #383a40; border: none; color: white; border-radius: 5px; outline: none; }
+        .mic-bar { height: 4px; background: #23a559; width: 0%; transition: 0.05s; margin-top: 2px; }
+        button { background: #5865f2; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; }
     </style>
 </head>
 <body onclick="if(window.gCtx) gCtx.resume()">
+    <div class="side">
+        <h3>GamerChat PRO</h3>
+        <button id="v-btn" onclick="toggleVoice()">ВОЙТИ В КАНАЛ</button>
+        <div id="v-list" style="margin-top:20px"></div>
+    </div>
+    <div class="main">
+        <div id="msgs"></div>
+        <div class="input"><input type="text" id="ui" placeholder="Напиши Сане..."></div>
+    </div>
+    <script>
+        const socket = io();
+        let myName = "Игрок_" + Math.floor(Math.random()*1000);
+        let gCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let peer, myStream, isInVoice = false;
 
-<div style="width: 240px; background: #2b2d31; padding: 15px;">
-    <h3 id="my-nick">...</h3>
-    <button onclick="toggleVoice()" id="v-btn" style="background:var(--accent); color:white; border:none; padding:10px; width:100%; cursor:pointer">ВОЙТИ В ГОЛОС</button>
-    <div id="v-list" style="margin-top:20px"></div>
-</div>
-
-<div class="col-chat">
-    <div id="msgs"></div>
-    <div class="input-area"><input type="text" id="ui" placeholder="Напиши что-нибудь..."></div>
-</div>
-
-<div class="u-list" id="u-list"></div>
-
-<script>
-    "use strict";
-    // МАГИЯ: Авто-настройка под любой туннель
-    const socket = io(window.location.origin, { transports: ['polling'] });
-    
-    let myName = localStorage.getItem('chat_nick') || "Игрок" + Math.floor(Math.random()*1000);
-    let gCtx = new (window.AudioContext || window.webkitAudioContext)();
-    let peer = null, myStream = null, isInVoice = false;
-
-    window.onload = () => {
-        document.getElementById('my-nick').innerText = myName;
-        socket.emit('user join', { name: myName, inVoice: false });
-        setupPeer();
-    };
-
-    async function setupPeer() {
-        // Настройка под текущий адрес сайта
-        peer = new Peer(undefined, {
-            host: window.location.hostname,
-            port: window.location.port || (window.location.protocol === 'https:' ? 443 : 80),
-            path: '/peerjs',
-            secure: window.location.protocol === 'https:',
-            config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] }
-        });
-
-        peer.on('open', id => {
-            socket.emit('user join', { name: myName, inVoice: isInVoice, pID: id });
-        });
-
-        peer.on('call', call => {
-            call.answer(myStream);
-            call.on('stream', rem => {
-                const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
+        window.onload = () => {
+            socket.emit("join", { name: myName });
+            peer = new Peer(undefined, { 
+                host: location.hostname, 
+                port: 443, 
+                path: "/peerjs", 
+                secure: true,
+                config: { 'iceServers': [{ 'urls': 'stun:://google.com' }] }
             });
-        });
-    }
+            peer.on("call", c => { c.answer(myStream); c.on("stream", s => addAudio(s)); });
+        };
 
-    socket.on('update users', users => {
-        const vL = document.getElementById('v-list'), uL = document.getElementById('u-list');
-        vL.innerHTML = ""; uL.innerHTML = "";
-        for(let id in users) {
-            uL.insertAdjacentHTML('beforeend', `<div>● ${users[id].name}</div>`);
-            if(users[id].inVoice) {
-                vL.insertAdjacentHTML('beforeend', `<div>🎤 ${users[id].name} <div id="mic-v-${id}" style="height:4px; background:var(--green); width:0%"></div></div>`);
-                if(isInVoice && users[id].pID && id !== socket.id) {
-                    const call = peer.call(users[id].pID, myStream);
-                    call.on('stream', rem => {
-                        const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
-                    });
+        async function toggleVoice() {
+            if(!isInVoice) {
+                try {
+                    myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    isInVoice = true;
+                    document.getElementById("v-btn").style.background = "#23a559";
+                    document.getElementById("v-btn").innerText = "В ЭФИРЕ";
+                    socket.emit("join", { name: myName, inVoice: true, pID: peer.id });
+                    
+                    const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
+                    src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
+                    function loop() {
+                        if(!isInVoice) return;
+                        anz.getByteFrequencyData(dat);
+                        let vol = (Math.max(...dat)/255)*100;
+                        socket.emit("speak", vol);
+                        requestAnimationFrame(loop);
+                    } loop();
+                } catch(e) { alert("Включи микрофон в браузере!"); }
+            } else { location.reload(); }
+        }
+
+        socket.on("update", users => {
+            const list = document.getElementById("v-list"); list.innerHTML = "";
+            for(let id in users) {
+                if(users[id].inVoice) {
+                    list.insertAdjacentHTML("beforeend", "<div style='margin-bottom:10px'>🎤 "+users[id].name+"<div id='m-"+id+"' class='mic-bar'></div></div>");
+                    if(isInVoice && users[id].pID && id !== socket.id) {
+                        const call = peer.call(users[id].pID, myStream);
+                        call.on("stream", s => addAudio(s));
+                    }
                 }
             }
-        }
-    });
+        });
 
-    async function toggleVoice() {
-        if (!isInVoice) {
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            isInVoice = true;
-            document.getElementById('v-btn').style.background = 'var(--green)';
-            socket.emit('user join', { name: myName, inVoice: true, pID: peer.id });
-            
-            const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
-            src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
-            function loop() {
-                if(!isInVoice) return;
-                anz.getByteFrequencyData(dat);
-                let vol = (Math.max(...dat) / 255) * 100;
-                const fill = document.getElementById('mic-v-' + socket.id);
-                if(fill) fill.style.width = vol + "%";
-                requestAnimationFrame(loop);
-            } loop();
-        } else { location.reload(); }
-    }
+        socket.on("speak", d => { const el = document.getElementById("m-"+d.id); if(el) el.style.width = d.v + "%"; });
+        socket.on("msg", d => { document.getElementById("msgs").insertAdjacentHTML("beforeend", "<div><b>"+d.u+":</b> "+d.t+"</div>"); });
 
-    socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b>${d.u}:</b> ${d.t}</div>`);
-    });
+        function addAudio(s) { const a = document.createElement("audio"); a.srcObject = s; a.autoplay = true; document.body.appendChild(a); }
 
-    document.getElementById('ui').onkeydown = (e) => {
-        if(e.key === 'Enter' && e.target.value.trim()){
-            socket.emit('chat message', { u: myName, t: e.target.value });
-            e.target.value = "";
-        }
-    };
-</script>
+        document.getElementById("ui").onkeydown = e => {
+            if(e.key === "Enter" && e.target.value.trim()) {
+                socket.emit("msg", { u: myName, t: e.target.value });
+                e.target.value = "";
+            }
+        };
+    </script>
 </body>
 </html>
+  `);
+});
+
+let users = {};
+io.on("connection", (socket) => {
+  socket.on("join", d => { users[socket.id] = d; io.emit("update", users); });
+  socket.on("msg", d => io.emit("msg", d));
+  socket.on("speak", v => io.emit("speak", { id: socket.id, v }));
+  socket.on("disconnect", () => { delete users[socket.id]; io.emit("update", users); });
+});
+
+http.listen(3000);
