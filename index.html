@@ -3,20 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat PRO v51.3.2 — GLOBAL</title>
-    <!-- ГЛОБАЛЬНОЕ ПОДКЛЮЧЕНИЕ ЧЕРЕЗ HTTPS ТУННЕЛЬ -->
-    <script src="https://92ftbdnzwp.localto.net/socket.io/socket.io.js"></script>
+    <!-- СТАБИЛЬНЫЙ ОБЛАЧНЫЙ СКРИПТ (CDN) ЧТОБЫ ИЗБЕЖАТЬ ОШИБКИ IO IS NOT DEFINED -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid rgba(0,0,0,0.2); }
         .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .input-area { padding: 20px; background: var(--bg-main); }
         #ui { width: 100%; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
         .admin-panel { padding: 15px; background: rgba(237, 66, 69, 0.15); border-top: 2px solid var(--red); display: none; }
-        .btn-clear { background: var(--red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; font-size: 11px; }
-        .v-user-item { padding: 8px 15px; color: #949ba4; font-size: 14px; display: flex; align-items: center; gap: 10px; }
+        .btn-clear { background: var(--red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 11px; text-transform: uppercase; }
+        .v-user { padding: 5px 15px; color: #949ba4; font-size: 14px; display: flex; align-items: center; gap: 8px; }
         .v-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
     </style>
 </head>
@@ -25,43 +25,43 @@
 <div class="col-channels">
     <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222; font-size:14px; color:white">🔊 GamerChat GLOBAL</div>
     <div style="flex:1; padding:15px">
-        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; padding:10px 0; color:#949ba4; font-weight:bold; transition: 0.2s;">🔈 Войти в голос</div>
+        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; padding:10px 0; color:#949ba4; font-weight:bold">🔈 Войти в голос</div>
         <div id="v-list" style="margin-top:10px"></div>
     </div>
     
-    <!-- ПАНЕЛЬ УПРАВЛЕНИЯ ДЛЯ ВОВАНА -->
+    <!-- АДМИН-ПАНЕЛЬ (ТОЛЬКО ДЛЯ ТЕБЯ) -->
     <div id="admin-box" class="admin-panel">
-        <div style="color:var(--red); font-size:10px; font-weight:bold; margin-bottom:8px">ADMIN CONTROL</div>
-        <button class="btn-clear" onclick="adminClear()">Очистить историю чата</button>
+        <button class="btn-clear" onclick="adminClear()">Очистить чат (Админ)</button>
     </div>
 
     <div style="padding:15px; background:#232428; display:flex; justify-content:space-between; align-items:center">
         <span id="display-nick" style="font-weight:bold; font-size:14px">...</span>
-        <span style="cursor:pointer; opacity:0.6" onclick="location.reload()">🔄</span>
+        <span style="cursor:pointer; opacity:0.5" onclick="location.reload()">🔄</span>
     </div>
 </div>
 
 <div class="col-chat">
     <div id="msgs"></div>
-    <div class="input-area"><input type="text" id="ui" placeholder="Написать сообщение в эфир..." autocomplete="off"></div>
+    <div class="input-area"><input type="text" id="ui" placeholder="Напиши сообщение..." autocomplete="off"></div>
 </div>
 
 <script>
     "use strict";
 
-    // ИНИЦИАЛИЗАЦИЯ ЧЕРЕЗ ГЛОБАЛЬНЫЙ ТУННЕЛЬ
+    // ПОДКЛЮЧЕНИЕ ЧЕРЕЗ ТВОЙ ТУННЕЛЬ LOCALTONET
     const socket = io('https://92ftbdnzwp.localto.net');
+    
     let myName = localStorage.getItem('chat_nick') || "Вован";
     let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
 
     document.getElementById('display-nick').innerText = myName;
 
-    // ПРОВЕРКА ПРАВ АДМИНИСТРАТОРА
+    // ПРОВЕРКА ПРАВ
     if (myName.toLowerCase() === "вован") {
         document.getElementById('admin-box').style.display = "block";
     }
 
-    // ГОЛОСОВОЙ ДВИЖОК (PEERJS)
+    // ГОЛОС (PEERJS)
     peer = new Peer(myName.toLowerCase().replace(/[^a-z]/g,''), {
         host: '0.peerjs.com', port: 443, secure: true, path: '/'
     });
@@ -69,7 +69,7 @@
     peer.on('call', (call) => {
         call.answer(myStream);
         call.on('stream', (rem) => {
-            let audio = document.createElement('audio');
+            const audio = document.createElement('audio');
             audio.srcObject = rem; audio.autoplay = true;
             document.body.appendChild(audio);
         });
@@ -84,7 +84,7 @@
                 document.getElementById('v-btn').innerText = "🔊 В ЭФИРЕ";
                 socket.emit('user join', { name: myName, inVoice: true });
                 socket.emit('get voice users');
-            } catch(e) { alert("Микрофон недоступен!"); }
+            } catch(e) { alert("Включи микрофон!"); }
         } else { location.reload(); }
     }
 
@@ -93,7 +93,7 @@
             if (users[id].name.toLowerCase() !== myName.toLowerCase()) {
                 const call = peer.call(users[id].name.toLowerCase(), myStream);
                 call.on('stream', (rem) => {
-                    let audio = document.createElement('audio');
+                    const audio = document.createElement('audio');
                     audio.srcObject = rem; audio.autoplay = true;
                     document.body.appendChild(audio);
                 });
@@ -101,7 +101,7 @@
         }
     });
 
-    // ЧАТ И АДМИН-ФУНКЦИИ
+    // ЧАТ ЛОГИКА
     const ui = document.getElementById('ui');
     ui.onkeydown = (e) => {
         if(e.key === 'Enter' && ui.value.trim()){
@@ -111,9 +111,7 @@
     };
 
     function adminClear() {
-        if(confirm("ВНИМАНИЕ: Удалить все сообщения из базы данных?")) {
-            socket.emit('admin clear');
-        }
+        if(confirm("Удалить все сообщения?")) socket.emit('admin clear');
     }
 
     socket.on('chat message', d => {
@@ -122,24 +120,16 @@
     });
 
     socket.on('chat cleared', () => { 
-        document.getElementById('msgs').innerHTML = "<div style='color:var(--red); text-align:center; font-size:12px'>--- ЧАТ ОЧИЩЕН АДМИНИСТРАТОРОМ ---</div>"; 
+        document.getElementById('msgs').innerHTML = "<div style='color:var(--red); text-align:center'>--- ЧАТ ОЧИЩЕН ---</div>"; 
     });
 
     socket.on('update users', (users) => {
         const vList = document.getElementById('v-list');
         vList.innerHTML = "";
-        for(let id in users) {
-            if(users[id].inVoice) {
-                vList.insertAdjacentHTML('beforeend', `<div class="v-user-item"><div class="v-dot"></div>${users[id].name}</div>`);
-            }
-        }
+        for(let id in users) if(users[id].inVoice) vList.insertAdjacentHTML('beforeend', `<div class="v-user"><div class="v-dot"></div>${users[id].name}</div>`);
     });
 
-    // ПОДКЛЮЧЕНИЕ ПРИ СТАРТЕ
-    socket.on('connect', () => {
-        socket.emit('user join', { name: myName, inVoice: false });
-        console.log("Успешное подключение к туннелю!");
-    });
+    socket.emit('user join', { name: myName, inVoice: false });
 </script>
 </body>
 </html>
