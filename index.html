@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v51.7.5 — TOTAL MASK</title>
+    <title>GamerChat PRO v52.0.1</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
@@ -26,7 +26,6 @@
         .ava-item { width: 50px; height: 50px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
         .ava-active { border-color: var(--accent); }
         .btn { background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--bg-sidebar); position: absolute; bottom: 0; right: 0; background: var(--green); }
         .speaking-border { border-color: var(--green) !important; box-shadow: 0 0 10px var(--green); }
     </style>
 </head>
@@ -34,7 +33,7 @@
 
 <div id="modal">
     <div class="m-box">
-        <h3 style="margin:0; text-align:center">⚙️ ГЕРМЕТИЧНЫЕ НАСТРОЙКИ</h3>
+        <h3 style="margin:0; text-align:center">⚙️ НАСТРОЙКИ</h3>
         <label style="font-size:11px">НИК:</label><input type="text" id="in-nick" style="padding:10px; background:#1e1f22; color:white; border:none">
         <label style="font-size:11px">ЦВЕТ:</label><input type="color" id="in-color" style="width:100%; height:30px; border:none; background:none">
         <label style="font-size:11px">АВАТАР:</label><div class="ava-grid" id="ava-picker"></div>
@@ -42,7 +41,6 @@
         <label style="font-size:11px">ЧУВСТВИТЕЛЬНОСТЬ: <span id="sens-val">10</span></label>
         <input type="range" id="in-sens" min="1" max="100" value="10" style="width:100%" oninput="document.getElementById('sens-val').innerText=this.value">
         <button class="btn" onclick="saveSets()">СОХРАНИТЬ</button>
-        <button class="btn" style="background:var(--red)" onclick="adminClear()">ОЧИСТИТЬ ЧАТ</button>
         <button onclick="document.getElementById('modal').style.display='none'" style="background:none; color:gray; border:none; cursor:pointer">Отмена</button>
     </div>
 </div>
@@ -50,7 +48,7 @@
 <div class="col-channels">
     <div class="my-profile-top">
         <div style="display:flex; align-items:center; gap:10px">
-            <div class="u-ava"><img id="my-ava-img" style="width:100%; border-radius:50%"><div class="status-dot"></div></div>
+            <img id="my-ava-img" style="width:35px; border-radius:50%">
             <b id="my-nick" style="font-size:14px">...</b>
         </div>
         <span onclick="openSets()" style="cursor:pointer; font-size:20px">⚙️</span>
@@ -64,7 +62,7 @@
 <div class="col-chat">
     <div id="msgs"></div>
     <div class="emoji-bar" id="emoji-list"></div>
-    <div class="input-area"><input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off"></div>
+    <div class="input-area"><input type="text" id="ui" placeholder="Написать..." autocomplete="off"></div>
 </div>
 
 <div class="col-users">
@@ -74,8 +72,8 @@
 
 <script>
     "use strict";
-    const serverUrl = window.location.origin;
-    const socket = io(serverUrl, { transports: ['polling', 'websocket'] });
+    // МАГИЯ: Автоматически берем адрес из строки браузера
+    const socket = io(window.location.origin, { transports: ['polling', 'websocket'] });
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
     let myColor = localStorage.getItem('chat_color') || "#ffffff";
@@ -89,14 +87,12 @@
     const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+123}`);
 
     window.onload = () => { 
-        updateUI(); 
-        renderEmojis(); 
-        setupPeer();
+        updateUI(); renderEmojis(); setupPeer();
         socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: false });
     };
 
     async function setupPeer() {
-        peer = new Peer(Math.random().toString(36).substr(2, 9), { host: '0.peerjs.com', port: 443, secure: true });
+        peer = new Peer(undefined, { debug: 1 });
         peer.on('call', call => {
             call.answer(myStream);
             call.on('stream', rem => {
@@ -145,27 +141,29 @@
 
     async function toggleVoice() {
         if (!isInVoice) {
+            if (gCtx.state === 'suspended') await gCtx.resume();
             const devId = document.getElementById('audio-in').value;
-            myStream = await navigator.mediaDevices.getUserMedia({ audio: devId ? { deviceId: { exact: devId } } : true });
-            isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
-            socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true, pID: peer.id });
-            const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
-            src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
-            function loop() {
-                if(!isInVoice) return;
-                anz.getByteFrequencyData(dat); let vol = (Math.max(...dat)/255)*100;
-                const fill = document.getElementById('mic-v-' + socket.id);
-                if(fill) fill.style.width = vol + "%";
-                socket.emit('speaking', vol > mySens);
-                requestAnimationFrame(loop);
-            } loop();
+            try {
+                myStream = await navigator.mediaDevices.getUserMedia({ audio: devId ? { deviceId: { exact: devId } } : true });
+                isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
+                socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true, pID: peer.id });
+                const src = gCtx.createMediaStreamSource(myStream), anz = gCtx.createAnalyser();
+                src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
+                function loop() {
+                    if(!isInVoice) return;
+                    anz.getByteFrequencyData(dat);
+                    let vol = (Math.max(...dat) / 255) * 100;
+                    const fill = document.getElementById('mic-v-' + socket.id);
+                    if(fill) fill.style.width = vol + "%";
+                    socket.emit('speaking', vol > mySens);
+                    requestAnimationFrame(loop);
+                } loop();
+            } catch(e) { alert("Ошибка мика!"); }
         } else { location.reload(); }
     }
 
     function openSets() {
         document.getElementById('modal').style.display = 'flex';
-        document.getElementById('in-nick').value = myName;
-        document.getElementById('in-color').value = myColor;
         const p = document.getElementById('ava-picker'); p.innerHTML = "";
         avas.forEach(url => {
             const img = document.createElement('img'); img.src = url; 
@@ -183,12 +181,8 @@
         localStorage.setItem('chat_color', myColor);
         localStorage.setItem('chat_ava', myAva);
         localStorage.setItem('chat_sens', mySens);
-        updateUI();
-        socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: isInVoice });
-        document.getElementById('modal').style.display = 'none';
+        location.reload();
     }
-
-    function adminClear() { if(confirm("Очистить?")) socket.emit('admin clear'); }
     
     document.getElementById('ui').onkeydown = (e) => { 
         if(e.key === 'Enter' && e.target.value.trim()){ 
