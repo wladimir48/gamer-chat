@@ -2,94 +2,146 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GamerChat PRO v51.3.2 — ULTIMATE</title>
+    <title>GamerChat PRO — ULTIMATE</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
         .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
-        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
+        .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; position: relative; }
         #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
         .input-area { padding: 20px; background: var(--bg-main); display: flex; gap: 10px; align-items: center; }
         #ui { flex: 1; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
-        .admin-panel { padding: 15px; background: rgba(0,0,0,0.3); border-top: 2px solid var(--red); display: none; }
-        .v-user { padding: 5px 15px; color: #949ba4; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .btn-opt { background: #4e5058; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-top: 5px; }
-        .emoji-btn { cursor: pointer; font-size: 20px; filter: grayscale(1); transition: 0.2s; }
-        .emoji-btn:hover { filter: grayscale(0); transform: scale(1.2); }
+        
+        /* Модалка настроек */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 999; }
+        .m-box { background: var(--bg-main); padding: 25px; border-radius: 12px; width: 400px; display: flex; flex-direction: column; gap: 10px; max-height: 90vh; overflow-y: auto; }
+        
+        /* Аватарки */
+        .ava-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 10px 0; }
+        .ava-item { width: 50px; height: 50px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: 0.2s; object-fit: cover; }
+        .ava-active { border-color: var(--accent); }
+        
+        /* Индикация микрофона */
+        .mic-bar { background: #111; height: 8px; border-radius: 4px; overflow: hidden; margin: 5px 0; }
+        #mic-fill { height: 100%; width: 0%; background: var(--green); transition: 0.05s; }
+        .speaking { border: 2px solid var(--green) !important; box-shadow: 0 0 10px var(--green); }
+        
+        .btn { background: var(--accent); color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .u-card { padding: 8px 15px; display: flex; align-items: center; gap: 10px; }
+        .u-ava { width: 32px; height: 32px; border-radius: 50%; background: #4e5058; }
     </style>
 </head>
 <body onclick="if(window.gCtx)gCtx.resume()">
 
-<div class="col-channels">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222; color:white">🔊 GamerChat PRO</div>
-    <div style="flex:1; padding:15px; overflow-y:auto">
-        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; color:#949ba4; font-weight:bold">🔈 Войти в голос</div>
-        <div id="v-list" style="margin-top:10px"></div>
-    </div>
-    
-    <!-- РАСШИРЕННЫЕ НАСТРОЙКИ АДМИНА -->
-    <div id="admin-box" class="admin-panel">
-        <div style="color:var(--red); font-size:10px; font-weight:bold; margin-bottom:10px">ADMIN SETTINGS</div>
-        <label style="font-size:10px">ЧУВСТВИТЕЛЬНОСТЬ: <span id="sens-val">10</span></label>
-        <input type="range" id="sens-range" min="1" max="100" value="10" style="width:100%" oninput="updateSens(this.value)">
-        <button class="btn-opt" style="background:var(--red); width:100%; margin-top:10px" onclick="adminClear()">ОЧИСТИТЬ ЧАТ</button>
-    </div>
+<div id="modal">
+    <div class="m-box">
+        <h3 style="margin:0; text-align:center">⚙️ РАСШИРЕННЫЕ НАСТРОЙКИ</h3>
+        <label>Никнейм:</label><input type="text" id="in-nick" style="padding:8px">
+        <label>Цвет ника:</label><input type="color" id="in-color" style="width:100%; height:30px; border:none; background:none">
+        
+        <label>Выбери аватар:</label>
+        <div class="ava-grid" id="ava-picker"></div>
+        
+        <label>Чувствительность микрофона (Extreme):</label>
+        <div class="mic-bar"><div id="mic-fill"></div></div>
+        <input type="range" id="in-sens" min="1" max="100" value="10" style="width:100%">
+        
+        <label>Устройство ввода:</label>
+        <select id="in-mic" style="padding:8px"></select>
 
+        <button class="btn" onclick="saveSets()">СОХРАНИТЬ</button>
+        <button class="btn" style="background:var(--red)" onclick="adminClear()">ОЧИСТИТЬ ЧАТ (АДМИН)</button>
+        <button onclick="document.getElementById('modal').style.display='none'" style="background:none; color:white; border:none; cursor:pointer">Закрыть</button>
+    </div>
+</div>
+
+<div class="col-channels">
+    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">🔊 GamerChat PRO</div>
+    <div style="flex:1; overflow-y:auto" id="v-list"></div>
+    <div style="padding:10px"><button class="btn" style="width:100%" onclick="toggleVoice()" id="v-btn">🔈 ВОЙТИ В ГОЛОС</button></div>
     <div style="padding:15px; background:#232428; display:flex; justify-content:space-between; align-items:center">
-        <b id="display-nick">...</b>
-        <span onclick="location.reload()" style="cursor:pointer">🔄</span>
+        <div style="display:flex; align-items:center; gap:8px">
+            <img id="my-ava-img" class="u-ava">
+            <b id="my-nick">...</b>
+        </div>
+        <span onclick="openSets()" style="cursor:pointer; font-size:20px">⚙️</span>
     </div>
 </div>
 
 <div class="col-chat">
     <div id="msgs"></div>
     <div class="input-area">
-        <span class="emoji-btn" onclick="addEmoji('😊')">😊</span>
+        <span onclick="addEmoji('😊')" style="cursor:pointer; font-size:20px">😊</span>
         <input type="text" id="ui" placeholder="Напиши сообщение..." autocomplete="off">
     </div>
 </div>
 
 <script>
     "use strict";
-
-    // ИСПРАВЛЕННОЕ ПОДКЛЮЧЕНИЕ (SECURE: FALSE)
-    const socket = io('https://92ftbdnzwp.localto.net', {
-        transports: ['polling', 'websocket'],
-        upgrade: true,
-        secure: false, 
-        rejectUnauthorized: false
-    });
-
+    const socket = io('https://92ftbdnzwp.localto.net', { transports: ['polling', 'websocket'] });
+    
     let myName = localStorage.getItem('chat_nick') || "Вован";
-    let mySens = 10;
+    let myColor = localStorage.getItem('chat_color') || "#ffffff";
+    let myAva = localStorage.getItem('chat_ava') || "https://api.dicebear.com/7.x/pixel-art/svg?seed=1";
+    let mySens = localStorage.getItem('chat_sens') || 10;
     let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
 
-    document.getElementById('display-nick').innerText = myName;
-    if (myName.toLowerCase() === "вован") document.getElementById('admin-box').style.display = "block";
+    const avas = Array.from({length:10}, (_,i) => `https://api.dicebear.com/7.x/pixel-art/svg?seed=${i+20}`);
 
-    // СМАЙЛИКИ
-    function addEmoji(e) { document.getElementById('ui').value += e; document.getElementById('ui').focus(); }
-    const parseEmoji = (t) => t.replace(/:\)/g, '😊').replace(/:D/g, '😁').replace(/<3/g, '❤️');
+    window.onload = () => {
+        document.getElementById('my-nick').innerText = myName;
+        document.getElementById('my-ava-img').src = myAva;
+        renderAvas();
+    };
 
-    // ГОЛОС (PEERJS)
-    peer = new Peer(myName.toLowerCase().replace(/[^a-z]/g,''), { host: '0.peerjs.com', port: 443, secure: true, path: '/' });
-    
-    peer.on('call', (call) => {
-        call.answer(myStream);
-        call.on('stream', (rem) => {
-            const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
+    function renderAvas() {
+        const p = document.getElementById('ava-picker');
+        p.innerHTML = "";
+        avas.forEach(url => {
+            const img = document.createElement('img');
+            img.src = url; img.className = 'ava-item' + (url===myAva?' ava-active':'');
+            img.onclick = () => { myAva = url; renderAvas(); };
+            p.appendChild(img);
         });
-    });
+    }
 
+    async function openSets() {
+        document.getElementById('modal').style.display = 'flex';
+        document.getElementById('in-nick').value = myName;
+        document.getElementById('in-color').value = myColor;
+        const devs = await navigator.mediaDevices.enumerateDevices();
+        const sel = document.getElementById('in-mic'); sel.innerHTML = "";
+        devs.forEach(d => { if(d.kind==='audioinput'){ const o = document.createElement('option'); o.value=d.deviceId; o.text=d.label; sel.add(o); } });
+        
+        // Индикация микрофона (Extreme)
+        const s = await navigator.mediaDevices.getUserMedia({audio:true});
+        const src = gCtx.createMediaStreamSource(s), anz = gCtx.createAnalyser();
+        src.connect(anz); const dat = new Uint8Array(anz.frequencyBinCount);
+        function loop() {
+            if(document.getElementById('modal').style.display==='none'){ s.getTracks().forEach(t=>t.stop()); return; }
+            anz.getByteFrequencyData(dat);
+            let v = (Math.max(...dat) / 255) * 100;
+            document.getElementById('mic-fill').style.width = v + "%";
+            requestAnimationFrame(loop);
+        } loop();
+    }
+
+    function saveSets() {
+        localStorage.setItem('chat_nick', document.getElementById('in-nick').value);
+        localStorage.setItem('chat_color', document.getElementById('in-color').value);
+        localStorage.setItem('chat_ava', myAva);
+        localStorage.setItem('chat_sens', document.getElementById('in-sens').value);
+        location.reload();
+    }
+
+    // ГОЛОС
     async function toggleVoice() {
         if (!isInVoice) {
             myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            isInVoice = true;
-            document.getElementById('v-btn').style.color = 'var(--green)';
-            socket.emit('user join', { name: myName, inVoice: true });
-            socket.emit('get voice users');
+            isInVoice = true; document.getElementById('v-btn').style.color = 'var(--green)';
+            socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: true });
         } else { location.reload(); }
     }
 
@@ -97,38 +149,26 @@
     const ui = document.getElementById('ui');
     ui.onkeydown = (e) => {
         if(e.key === 'Enter' && ui.value.trim()){
-            socket.emit('chat message', { u: myName, t: parseEmoji(ui.value) });
+            socket.emit('chat message', { u: myName, t: ui.value, c: myColor, a: myAva });
             ui.value = "";
         }
     };
     
     socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b style="color:var(--accent)">${d.u}:</b> ${d.t}</div>`);
+        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div style="display:flex; gap:10px; margin-bottom:10px"><img src="${d.a}" class="u-ava"><div><b style="color:${d.c}">${d.u}:</b> ${d.t}</div></div>`);
         document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
     });
 
-    // НАСТРОЙКИ
-    function updateSens(v) { mySens = v; document.getElementById('sens-val').innerText = v; }
-    function adminClear() { if(confirm("Очистить историю?")) socket.emit('admin clear'); }
-    socket.on('chat cleared', () => { document.getElementById('msgs').innerHTML = "<i>Чат очищен</i>"; });
-
-    socket.on('update users', (users) => {
-        const vList = document.getElementById('v-list'); vList.innerHTML = "";
-        for(let id in users) if(users[id].inVoice) vList.insertAdjacentHTML('beforeend', `<div class="v-user">● ${users[id].name}</div>`);
+    socket.on('update users', users => {
+        const l = document.getElementById('v-list'); l.innerHTML = "";
+        for(let id in users) if(users[id].inVoice) l.insertAdjacentHTML('beforeend', `<div class="u-card"><img src="${users[id].ava}" class="u-ava"><span>${users[id].name}</span></div>`);
     });
 
-    socket.on('call users', (users) => {
-        for (let id in users) {
-            if (users[id].name.toLowerCase() !== myName.toLowerCase()) {
-                const call = peer.call(users[id].name.toLowerCase(), myStream);
-                call.on('stream', (rem) => {
-                    const a = document.createElement('audio'); a.srcObject = rem; a.autoplay = true; document.body.appendChild(a);
-                });
-            }
-        }
-    });
+    function adminClear() { if(confirm("Очистить чат?")) socket.emit('admin clear'); }
+    socket.on('chat cleared', () => document.getElementById('msgs').innerHTML = "--- ЧАТ ОЧИЩЕН ---");
+    function addEmoji(e) { ui.value += e; ui.focus(); }
 
-    socket.emit('user join', { name: myName, inVoice: false });
+    socket.emit('user join', { name: myName, ava: myAva, color: myColor, inVoice: false });
 </script>
 </body>
 </html>
