@@ -64,7 +64,7 @@
 
     const cfg = {
         apiKey: "AIzaSyBax3Y3NEkOnGFVnJbnN1kgh9QFHrEt-7U",
-        databaseURL: "https://gamerchat-7a857-default-rtdb.firebaseio.com".replace(/~/g,''),
+        databaseURL: "https://gamerchat-7a857-default-rtdb.firebaseio.com".replace(//g,''),
     };
 
     window.initAudio = function() {
@@ -79,7 +79,7 @@
         document.getElementById('display-nick').innerText = myName;
 
         peer = new Peer(myName.toLowerCase(), {
-            host: '0.peerjs.com'.replace(/~/g,''),
+            host: '0.peerjs.com'.replace(//g,''),
             port: 443, secure: true, path: '/'
         });
 
