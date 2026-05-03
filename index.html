@@ -3,69 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <title>GamerChat PRO v51.3.2 — GLOBAL</title>
-    <!-- СТАБИЛЬНЫЙ ОБЛАЧНЫЙ СКРИПТ (CDN) ЧТОБЫ ИЗБЕЖАТЬ ОШИБКИ IO IS NOT DEFINED -->
+    <!-- ЗАГРУЗКА БИБЛИОТЕКИ ИЗ ОБЛАКА (CDN) -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg-main: #313338; --bg-sidebar: #2b2d31; --bg-servers: #1e1f22; --accent: #5865f2; --green: #23a559; --red: #ed4245; --text: #dbdee1; }
         body { background: var(--bg-servers); color: var(--text); font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; margin: 0; overflow: hidden; }
-        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; border-right: 1px solid rgba(0,0,0,0.2); }
+        .col-channels { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; flex-shrink: 0; }
         .col-chat { flex: 1; background: var(--bg-main); display: flex; flex-direction: column; min-width: 0; }
-        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .input-area { padding: 20px; background: var(--bg-main); }
+        #msgs { flex: 1; overflow-y: auto; padding: 20px; scroll-behavior: smooth; }
+        .input-area { padding: 20px; }
         #ui { width: 100%; padding: 12px; background: #383a40; border: none; border-radius: 8px; color: white; outline: none; }
-        .admin-panel { padding: 15px; background: rgba(237, 66, 69, 0.15); border-top: 2px solid var(--red); display: none; }
-        .btn-clear { background: var(--red); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 11px; text-transform: uppercase; }
-        .v-user { padding: 5px 15px; color: #949ba4; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .v-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+        .admin-panel { padding: 10px; background: rgba(237, 66, 69, 0.1); border-top: 1px solid var(--red); display: none; }
     </style>
 </head>
-<body onclick="if(gCtx)gCtx.resume()">
+<body onclick="if(window.gCtx)gCtx.resume()">
 
 <div class="col-channels">
-    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222; font-size:14px; color:white">🔊 GamerChat GLOBAL</div>
+    <div style="padding:15px; font-weight:bold; border-bottom:1px solid #222">🔊 GamerChat GLOBAL</div>
     <div style="flex:1; padding:15px">
-        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; padding:10px 0; color:#949ba4; font-weight:bold">🔈 Войти в голос</div>
+        <div id="v-btn" onclick="toggleVoice()" style="cursor:pointer; color:#949ba4">🔈 Войти в голос</div>
         <div id="v-list" style="margin-top:10px"></div>
     </div>
-    
-    <!-- АДМИН-ПАНЕЛЬ (ТОЛЬКО ДЛЯ ТЕБЯ) -->
-    <div id="admin-box" class="admin-panel">
-        <button class="btn-clear" onclick="adminClear()">Очистить чат (Админ)</button>
-    </div>
-
-    <div style="padding:15px; background:#232428; display:flex; justify-content:space-between; align-items:center">
-        <span id="display-nick" style="font-weight:bold; font-size:14px">...</span>
-        <span style="cursor:pointer; opacity:0.5" onclick="location.reload()">🔄</span>
-    </div>
+    <div id="admin-box" class="admin-panel"><button onclick="adminClear()" style="width:100%; background:var(--red); color:white; border:none; padding:8px; border-radius:4px; cursor:pointer">ОЧИСТИТЬ ВСЁ</button></div>
+    <div style="padding:15px; background:#232428"><b id="display-nick">...</b></div>
 </div>
 
 <div class="col-chat">
     <div id="msgs"></div>
-    <div class="input-area"><input type="text" id="ui" placeholder="Напиши сообщение..." autocomplete="off"></div>
+    <div class="input-area"><input type="text" id="ui" placeholder="Написать сообщение..." autocomplete="off"></div>
 </div>
 
 <script>
     "use strict";
-
-    // ПОДКЛЮЧЕНИЕ ЧЕРЕЗ ТВОЙ ТУННЕЛЬ LOCALTONET
-    const socket = io('https://92ftbdnzwp.localto.net');
-    
-    let myName = localStorage.getItem('chat_nick') || "Вован";
-    let gCtx = new (window.AudioContext || window.webkitAudioContext)(), myStream = null, peer = null, isInVoice = false;
-
-    document.getElementById('display-nick').innerText = myName;
-
-    // ПРОВЕРКА ПРАВ
-    if (myName.toLowerCase() === "вован") {
-        document.getElementById('admin-box').style.display = "block";
-    }
-
-    // ГОЛОС (PEERJS)
-    peer = new Peer(myName.toLowerCase().replace(/[^a-z]/g,''), {
-        host: '0.peerjs.com', port: 443, secure: true, path: '/'
+    // ТВОЯ ГЛОБАЛЬНАЯ ССЫЛКА ИЗ LOCALTONET
+    const socket = io('https://92ftbdnzwp.localto.net', {
+        transports: ['websocket', 'polling']
     });
 
+    let myName = localStorage.getItem('chat_nick') || "Вован";
+    let gCtx = null, myStream = null, peer = null, isInVoice = false;
+    document.getElementById('display-nick').innerText = myName;
+
+    if (myName.toLowerCase() === "вован") document.getElementById('admin-box').style.display = "block";
+
+    // ГОЛОС (PEERJS)
+    peer = new Peer(myName.toLowerCase().replace(/[^a-z]/g,''), { host: '0.peerjs.com', port: 443, secure: true, path: '/' });
+    
     peer.on('call', (call) => {
         call.answer(myStream);
         call.on('stream', (rem) => {
@@ -77,16 +61,28 @@
 
     async function toggleVoice() {
         if (!isInVoice) {
-            try {
-                myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                isInVoice = true;
-                document.getElementById('v-btn').style.color = 'var(--green)';
-                document.getElementById('v-btn').innerText = "🔊 В ЭФИРЕ";
-                socket.emit('user join', { name: myName, inVoice: true });
-                socket.emit('get voice users');
-            } catch(e) { alert("Включи микрофон!"); }
+            myStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            isInVoice = true;
+            document.getElementById('v-btn').style.color = 'var(--green)';
+            socket.emit('user join', { name: myName, inVoice: true });
+            socket.emit('get voice users');
         } else { location.reload(); }
     }
+
+    // ЧАТ
+    const ui = document.getElementById('ui');
+    ui.onkeydown = (e) => { if(e.key === 'Enter' && ui.value.trim()){ socket.emit('chat message', { u: myName, t: ui.value }); ui.value = ""; } };
+    
+    socket.on('chat message', d => {
+        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b>${d.u}:</b> ${d.t}</div>`);
+        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    });
+
+    socket.on('update users', (users) => {
+        const vList = document.getElementById('v-list');
+        vList.innerHTML = "";
+        for(let id in users) if(users[id].inVoice) vList.insertAdjacentHTML('beforeend', `<div style="color:#949ba4">● ${users[id].name}</div>`);
+    });
 
     socket.on('call users', (users) => {
         for (let id in users) {
@@ -101,33 +97,8 @@
         }
     });
 
-    // ЧАТ ЛОГИКА
-    const ui = document.getElementById('ui');
-    ui.onkeydown = (e) => {
-        if(e.key === 'Enter' && ui.value.trim()){
-            socket.emit('chat message', { u: myName, t: ui.value });
-            ui.value = "";
-        }
-    };
-
-    function adminClear() {
-        if(confirm("Удалить все сообщения?")) socket.emit('admin clear');
-    }
-
-    socket.on('chat message', d => {
-        document.getElementById('msgs').insertAdjacentHTML('beforeend', `<div><b style="color:var(--accent)">${d.u}:</b> ${d.t}</div>`);
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
-    });
-
-    socket.on('chat cleared', () => { 
-        document.getElementById('msgs').innerHTML = "<div style='color:var(--red); text-align:center'>--- ЧАТ ОЧИЩЕН ---</div>"; 
-    });
-
-    socket.on('update users', (users) => {
-        const vList = document.getElementById('v-list');
-        vList.innerHTML = "";
-        for(let id in users) if(users[id].inVoice) vList.insertAdjacentHTML('beforeend', `<div class="v-user"><div class="v-dot"></div>${users[id].name}</div>`);
-    });
+    function adminClear() { if(confirm("Очистить?")) socket.emit('admin clear'); }
+    socket.on('chat cleared', () => { document.getElementById('msgs').innerHTML = "<i>Чат очищен</i>"; });
 
     socket.emit('user join', { name: myName, inVoice: false });
 </script>
