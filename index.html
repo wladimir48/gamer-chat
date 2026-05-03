@@ -79,7 +79,7 @@
         document.getElementById('display-nick').innerText = myName;
 
         peer = new Peer(myName.toLowerCase(), {
-            host: '0.peerjs.com'.replace(//g,''),
+            host: '0.peerjs.com',
             port: 443, secure: true, path: '/'
         });
 
