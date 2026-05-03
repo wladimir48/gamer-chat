@@ -74,7 +74,7 @@
 
 <script>
     "use strict";
-    const serverUrl = 'https://92ftbdnzwp.localto.net';
+    const serverUrl = window.location.origin;
     const socket = io(serverUrl, { transports: ['polling', 'websocket'] });
     
     let myName = localStorage.getItem('chat_nick') || "Вован";
